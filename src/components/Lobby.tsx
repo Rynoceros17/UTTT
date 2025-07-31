@@ -187,7 +187,16 @@ export default function Lobby() {
 
   const handleJoinGame = async (gameId: string) => {
     if (player) {
-      await joinGameAction(gameId, player);
+      try {
+        await joinGameAction(gameId, player);
+        router.push(`/game/${gameId}`);
+      } catch (error: any) {
+        toast({
+            title: "Failed to Join Game",
+            description: error.message,
+            variant: "destructive"
+        });
+      }
     }
   };
 
