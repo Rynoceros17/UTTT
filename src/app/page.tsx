@@ -1,3 +1,9 @@
+import Lobby from "@/components/Lobby";
+
 export default function Home() {
-  return <></>;
+  return (
+    <div className="w-full">
+      <Lobby />
+    </div>
+  );
 }
