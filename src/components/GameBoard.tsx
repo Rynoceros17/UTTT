@@ -4,6 +4,7 @@
 import LocalBoard from './LocalBoard';
 import type { Game, PlayerSymbol, Player } from '@/types';
 import { WINNING_COMBINATIONS } from '@/lib/gameLogic';
+import { cn } from '@/lib/utils';
 
 interface GameBoardProps {
   game: Game;
@@ -14,8 +15,21 @@ interface GameBoardProps {
 }
 
 export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectator, onMakeMove }: GameBoardProps) {
-  const { localBoards, globalBoard, activeLocalBoard, winner, winningLine } = game;
+  const { localBoards, globalBoard, activeLocalBoard, winner, winningLine, status } = game;
   const globalWinningLine = winner && winner !== 'D' ? winningLine : null;
+
+  let endMessage = "";
+  if (status === 'finished') {
+    if (winner === 'D') {
+      endMessage = "It's a Draw!";
+    } else if (winner === playerSymbol && !isSpectator) {
+      endMessage = "You Won!";
+    } else if (isSpectator) {
+      endMessage = `Player ${winner} Won!`;
+    } else {
+      endMessage = "You Lost.";
+    }
+  }
 
   return (
     <div className="relative aspect-square">
@@ -48,6 +62,13 @@ export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectato
                 strokeLinecap="round"
              />
         </svg>
+      )}
+      {status === 'finished' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 animate-in fade-in-50 rounded-lg">
+            <h2 className="text-4xl md:text-6xl font-bold font-headline text-white animate-in zoom-in-75 slide-in-from-bottom-5">
+                {endMessage}
+            </h2>
+        </div>
       )}
     </div>
   );
