@@ -35,7 +35,6 @@ export async function createGameAction(player: Player) {
   const gameId = Math.random().toString(36).substring(2, 9);
   const game = createNewGame(gameId, player);
   db.games.save(game);
-  revalidatePath('/');
   redirect(`/game/${gameId}`);
 }
 
@@ -46,8 +45,6 @@ export async function joinGameAction(gameId: string, player: Player) {
     game.oPlayer = player;
     game.status = 'live';
     db.games.save(game);
-    revalidatePath('/');
-    revalidatePath(`/game/${gameId}`);
   } else {
     // Handle error: game not found, already full, or player is X
   }
