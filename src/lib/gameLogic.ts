@@ -29,6 +29,7 @@ export function isBoardFull(board: CellState[]): boolean {
 export function createNewGame(gameId: string, player: Player): Game {
   return {
     id: gameId,
+    playerIds: [player.id],
     xPlayer: player,
     oPlayer: null,
     status: 'waiting',

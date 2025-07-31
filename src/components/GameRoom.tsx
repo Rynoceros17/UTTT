@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Game, Player } from '@/types';
-import { getGameAction, joinGameAction, forfeitGameAction } from '@/actions/gameActions';
+import { joinGameAction, forfeitGameAction } from '@/actions/gameActions';
 import { useToast } from '@/hooks/use-toast';
 import GameBoard from './GameBoard';
 import PlayerInfo from './PlayerInfo';
@@ -13,6 +13,9 @@ import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
 import { Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+
 
 export function GameRoom({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<Game | null>(null);
@@ -33,53 +36,50 @@ export function GameRoom({ gameId }: { gameId: string }) {
     }
   }, [router]);
 
-  const fetchGame = useCallback(async () => {
-    try {
-      const g = await getGameAction(gameId);
-      if (g) {
-        setGame((prevGame) => {
-            if (prevGame && prevGame.winner !== g.winner && g.winner) {
-                const currentPlayerIsX = player?.id === g.xPlayer.id;
-                const playerSymbol = currentPlayerIsX ? 'X' : 'O';
-                if (g.winner === playerSymbol) {
-                    confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-                }
-            }
-            return g;
-        });
-      } else {
-        toast({ title: "Game not found", variant: "destructive" });
-        router.push('/');
+  const handleBeforeUnload = useCallback(() => {
+      if (game && game.status === 'live' && player) {
+        forfeitGameAction(game.id, player.id);
       }
-    } catch (error) {
-      console.error("Failed to fetch game:", error);
-      toast({ title: "Error fetching game", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [gameId, router, toast, player]);
+  }, [game, player]);
 
   // Effect to set up game fetching interval and cleanup.
-  // Runs only when `fetchGame` or `player` changes.
   useEffect(() => {
     if (!player) return;
 
-    const handleBeforeUnload = () => {
-        if (game && game.status === 'live') {
-          forfeitGameAction(game.id, player.id);
-        }
-    };
-    
     window.addEventListener('beforeunload', handleBeforeUnload);
 
-    fetchGame(); // Fetch immediately
-    const intervalId = setInterval(fetchGame, 2000); // Poll every 2 seconds
+    const gameDocRef = doc(db, 'games', gameId);
+    
+    const unsubscribe = onSnapshot(gameDocRef, (doc) => {
+        if (doc.exists()) {
+            const newGame = doc.data() as Game;
+            setGame((prevGame) => {
+                if (prevGame && prevGame.winner !== newGame.winner && newGame.winner) {
+                    const currentPlayerIsX = player?.id === newGame.xPlayer.id;
+                    const playerSymbol = currentPlayerIsX ? 'X' : 'O';
+                    if (newGame.winner === playerSymbol) {
+                        confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+                    }
+                }
+                return newGame;
+            });
+        } else {
+            toast({ title: "Game not found", variant: "destructive" });
+            router.push('/');
+        }
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Failed to subscribe to game updates:", error);
+        toast({ title: "Error fetching game", variant: "destructive" });
+        setIsLoading(false);
+    });
+
 
     return () => {
-      clearInterval(intervalId);
+      unsubscribe();
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [player, fetchGame, game]);
+  }, [player, gameId, router, toast, handleBeforeUnload]);
   
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {

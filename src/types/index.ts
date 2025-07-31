@@ -18,6 +18,7 @@ export type Move = {
 export type Game = {
   id: string;
   createdAt: number;
+  playerIds: string[]; // For querying games by player
   xPlayer: Player;
   oPlayer: Player | null;
   status: 'waiting' | 'live' | 'finished';
