@@ -8,24 +8,20 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import type { ChatMessage } from '@/types';
-import { sendChatMessageAction } from '@/actions/gameActions';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PlayerAvatar } from './PlayerAvatar';
-import { formatDistanceToNow } from 'date-fns';
 
 interface ChatBoxProps {
-  gameId: string;
   messages: ChatMessage[];
+  onSendMessage: (text: string) => void;
 }
 
-export function ChatBox({ gameId, messages }: ChatBoxProps) {
+export function ChatBox({ messages, onSendMessage }: ChatBoxProps) {
   const { player } = useAuth();
   const [newMessage, setNewMessage] = React.useState('');
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    // Scroll to the bottom whenever messages change
     if (scrollAreaRef.current) {
         const viewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
         if (viewport) {
@@ -34,16 +30,10 @@ export function ChatBox({ gameId, messages }: ChatBoxProps) {
     }
   }, [messages]);
 
-
-  const handleSendMessage = async () => {
-    if (newMessage.trim() === '' || !player) return;
-
-    await sendChatMessageAction(gameId, {
-      senderId: player.uid,
-      senderName: player.name,
-      text: newMessage.trim(),
-    });
-
+  const handleSendMessage = () => {
+    const trimmedMessage = newMessage.trim();
+    if (trimmedMessage === '' || !player) return;
+    onSendMessage(trimmedMessage);
     setNewMessage('');
   };
   
@@ -66,26 +56,23 @@ export function ChatBox({ gameId, messages }: ChatBoxProps) {
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden">
         <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef}>
-          <div className="space-y-4">
+          <div className="space-y-2">
             {messages.map((msg, index) => (
               <div
                 key={index}
                 className={cn(
                   'flex items-start gap-2',
-                  msg.senderId === player?.uid ? 'flex-row-reverse' : 'flex-row'
+                  msg.senderId === player?.uid ? 'justify-end' : 'justify-start'
                 )}
               >
-                <div className="flex flex-col gap-1">
                   <div
                     className={cn(
                       'p-3 rounded-lg max-w-xs',
                        msg.senderId === player?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'
                     )}
                   >
-                    <p className="text-sm font-semibold mb-1">{msg.senderName}</p>
                     <p className="text-sm">{msg.text}</p>
                   </div>
-                </div>
               </div>
             ))}
              {messages.length === 0 && (

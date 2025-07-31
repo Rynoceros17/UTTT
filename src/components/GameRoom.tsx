@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Game, PlayerSymbol } from '@/types';
-import { joinGameAction, forfeitGameAction, makeMoveAction } from '@/actions/gameActions';
+import type { Game, PlayerSymbol, ChatMessage } from '@/types';
+import { joinGameAction, forfeitGameAction, makeMoveAction, sendChatMessageAction } from '@/actions/gameActions';
 import { applyMove } from '@/lib/gameLogic';
 import { useToast } from '@/hooks/use-toast';
 import GameBoard from './GameBoard';
@@ -21,6 +21,7 @@ import { ChatBox } from './ChatBox';
 
 export function GameRoom({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<Game | null>(null);
+  const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const { player, loading: authLoading } = useAuth();
   const [isJoining, setIsJoining] = useState(false);
   const router = useRouter();
@@ -31,7 +32,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
       if (game && game.status === 'live' && player) {
         const isPlayerInGame = game.playerIds.includes(player.uid);
         if (isPlayerInGame) {
-          // This action is fire-and-forget
           forfeitGameAction(game.id, player.uid);
         }
       }
@@ -56,20 +56,20 @@ export function GameRoom({ gameId }: { gameId: string }) {
     const unsubscribe = onSnapshot(gameDocRef, (doc) => {
         if (doc.exists()) {
             const newGame = doc.data() as Game;
-            setGame((prevGame) => {
-                if (prevGame && prevGame.status === 'waiting' && newGame.status === 'live') {
-                    setIsJoining(false);
-                }
+            setGame(newGame);
+            setOptimisticMessages(newGame.chat || []);
+            
+            if (newGame.status === 'waiting' && isJoining) {
+                setIsJoining(false);
+            }
                 
-                if (newGame.status === 'finished' && !hasConfettied.current) {
-                    const playerSymbol = player?.uid === newGame.xPlayer.uid ? 'X' : 'O';
-                    if (newGame.winner === playerSymbol) {
-                        confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-                        hasConfettied.current = true;
-                    }
+            if (newGame.status === 'finished' && !hasConfettied.current) {
+                const playerSymbol = player?.uid === newGame.xPlayer.uid ? 'X' : 'O';
+                if (newGame.winner === playerSymbol) {
+                    confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+                    hasConfettied.current = true;
                 }
-                return newGame;
-            });
+            }
         } else {
             toast({ title: "Game not found or has been deleted", variant: "destructive" });
             router.push('/');
@@ -79,24 +79,16 @@ export function GameRoom({ gameId }: { gameId: string }) {
         toast({ title: "Error fetching game data", variant: "destructive" });
     });
 
-    return () => {
-      unsubscribe();
-    };
-  }, [authLoading, player, gameId, router, toast]);
+    return () => unsubscribe();
+  }, [authLoading, player, gameId, router, toast, isJoining]);
   
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
       setIsJoining(true);
-      try {
-        const result = await joinGameAction(game.id, player);
-         if (!result.success) {
-            toast({ title: "Failed to join game", description: result.message, variant: "destructive" });
-            setIsJoining(false);
-         }
-         // On success, the real-time listener will update the game state for all clients
-      } catch (error: any) {
-         toast({ title: "Failed to join game", description: error.message, variant: "destructive" });
-         setIsJoining(false);
+      const result = await joinGameAction(game.id, player);
+      if (!result.success) {
+        toast({ title: "Failed to join game", description: result.message, variant: "destructive" });
+        setIsJoining(false);
       }
     }
   };
@@ -114,48 +106,52 @@ export function GameRoom({ gameId }: { gameId: string }) {
     const playerSymbol = isPlayerX ? 'X' : 'O';
     const isSpectator = !isPlayerX && !(player.uid === game.oPlayer?.uid);
 
-    // Instant client-side validation
-    if (game.status !== 'live' || isSpectator || game.nextTurn !== playerSymbol) {
-        return;
-    }
+    if (game.status !== 'live' || isSpectator || game.nextTurn !== playerSymbol) return;
     if (game.activeLocalBoard !== null && game.activeLocalBoard !== localBoardIndex) {
         toast({ title: "Invalid Move", description: "You must play in the highlighted board.", variant: "destructive" });
         return;
     }
     const flatIndex = localBoardIndex * 9 + cellIndex;
-    if (game.localBoards[flatIndex] !== null) {
-        return; // Cell already taken, no feedback needed
-    }
+    if (game.localBoards[flatIndex] !== null) return;
     
-    // Optimistic UI update
     const previousGame = game;
     const move = { gameId: game.id, player: playerSymbol, localBoardIndex, cellIndex };
     const optimisticGame = applyMove(game, move);
     setGame(optimisticGame);
 
-    // Send move to server for validation and broadcast
     const result = await makeMoveAction(game.id, move);
 
     if (!result.success) {
-      // If server rejects move, revert the UI and show error
       setGame(previousGame); 
-      toast({
-        title: "Invalid Move",
-        description: result.message,
-        variant: "destructive",
-      });
+      toast({ title: "Invalid Move", description: result.message, variant: "destructive" });
     }
-    // On success, we do nothing. The `onSnapshot` listener will receive the official
-    // update from the server, which will match our optimistic state, ensuring a smooth sync.
+  };
+
+  const handleSendMessage = async (text: string) => {
+      if (!player || !game) return;
+      const optimisticMessage: ChatMessage = {
+          senderId: player.uid,
+          senderName: player.name,
+          text,
+          timestamp: Date.now(),
+      };
+      
+      setOptimisticMessages(prev => [...prev, optimisticMessage]);
+
+      await sendChatMessageAction(game.id, {
+          senderId: player.uid,
+          senderName: player.name,
+          text: text,
+      });
+      // The onSnapshot listener will handle syncing the "official" state.
   };
 
   if (authLoading || !game || !player) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
   }
   
+  const isPlayerX = player.uid === game.xPlayer.uid;
   if (game.status === 'waiting') {
-    const isPlayerX = player.uid === game.xPlayer.uid;
-    // Player X is waiting for an opponent
     if (isPlayerX) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
@@ -167,19 +163,17 @@ export function GameRoom({ gameId }: { gameId: string }) {
       );
     }
     
-    // Another player (not X) is viewing the waiting game
     return (
         <div className="flex flex-col items-center justify-center h-full gap-4">
-        <h2 className="text-2xl font-headline">{game.xPlayer.name} is looking for a challenger.</h2>
-        <Button onClick={handleJoinGame} disabled={isJoining}>
-        {isJoining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Join Game
-        </Button>
+          <h2 className="text-2xl font-headline">{game.xPlayer.name} is looking for a challenger.</h2>
+          <Button onClick={handleJoinGame} disabled={isJoining}>
+            {isJoining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Join Game
+          </Button>
         </div>
     );
   }
   
-  const isPlayerX = player.uid === game.xPlayer.uid;
   const isPlayerO = !!game.oPlayer && player.uid === game.oPlayer.uid;
   const isSpectator = !isPlayerX && !isPlayerO;
   const playerSymbol = isPlayerX ? 'X' : (isPlayerO ? 'O' : 'X');
@@ -222,7 +216,10 @@ export function GameRoom({ gameId }: { gameId: string }) {
       </div>
 
       <div className="w-full lg:w-80 flex-shrink-0">
-        <ChatBox gameId={game.id} messages={game.chat || []} />
+        <ChatBox 
+            messages={optimisticMessages} 
+            onSendMessage={handleSendMessage} 
+        />
       </div>
     </div>
   );
