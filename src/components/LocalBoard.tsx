@@ -24,14 +24,16 @@ export default function LocalBoard({ localBoardIndex, cells, winner, isActive, i
   
   const boardClasses = cn(
     'relative grid grid-cols-3 grid-rows-3 gap-1 rounded-md transition-all duration-300',
-    winner ? 'bg-background' : 'bg-card',
     isActive && isClickable && !winner ? 'bg-primary/10 shadow-lg ring-2 ring-primary' : 'shadow-sm',
-    winner === 'D' && 'bg-muted/80',
+    winner === 'X' ? 'bg-primary/20' : 
+    winner === 'O' ? 'bg-accent/20' : 
+    winner === 'D' ? 'bg-muted/80' : 'bg-card'
   );
 
   return (
     <div className={boardClasses}>
-      {cells.map((cell, i) => (
+      {/* Show cells only if the board is not won */}
+      {!winner && cells.map((cell, i) => (
         <Cell
           key={i}
           localBoardIndex={localBoardIndex}
@@ -43,6 +45,7 @@ export default function LocalBoard({ localBoardIndex, cells, winner, isActive, i
           onCellClick={onCellClick}
         />
       ))}
+      {/* Show large winner icon if board is won */}
       {winner && winner !== 'D' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           {winner === 'X' && <XIcon className="w-3/4 h-3/4 text-primary/70" />}
