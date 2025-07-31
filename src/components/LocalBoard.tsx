@@ -27,8 +27,6 @@ export default function LocalBoard({ localBoardIndex, cells, winner, isActive, i
     'relative grid grid-cols-3 grid-rows-3 gap-1 rounded-md transition-all duration-300',
     winner ? 'bg-background' : 'bg-card',
     isActive && isClickable && !winner ? 'bg-primary/10 shadow-lg ring-2 ring-primary' : 'shadow-sm',
-    winner === 'X' && 'bg-blue-200/50',
-    winner === 'O' && 'bg-orange-200/50',
     winner === 'D' && 'bg-muted/80',
   );
 
