@@ -28,7 +28,8 @@ export function GameRoom({ gameId }: { gameId: string }) {
       if (g) {
         setGame((prevGame) => {
             if (prevGame && prevGame.winner !== g.winner && g.winner) {
-                const playerSymbol = player?.id === g.xPlayer.id ? 'X' : 'O';
+                const currentPlayerIsX = player?.id === g.xPlayer.id;
+                const playerSymbol = currentPlayerIsX ? 'X' : 'O';
                 if (g.winner === playerSymbol) {
                     confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
                 }
@@ -47,12 +48,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
     }
   }, [gameId, router, toast, player]);
 
-  const handleBeforeUnload = useCallback((e: BeforeUnloadEvent) => {
-    if (player && game && game.status === 'live') {
-      forfeitGameAction(game.id, player.id);
-    }
-  }, [player, game]);
-
   useEffect(() => {
     const storedPlayer = localStorage.getItem('ttt-player');
     if (storedPlayer) {
@@ -61,6 +56,12 @@ export function GameRoom({ gameId }: { gameId: string }) {
       router.push('/');
       return;
     }
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        if (player && game && game.status === 'live') {
+          forfeitGameAction(game.id, player.id);
+        }
+    };
     
     window.addEventListener('beforeunload', handleBeforeUnload);
 
@@ -71,11 +72,11 @@ export function GameRoom({ gameId }: { gameId: string }) {
       clearInterval(intervalId);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [fetchGame, router, handleBeforeUnload]);
+  }, [fetchGame, router, player, game]);
   
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
-      await joinGameAction(gameId, player);
+      await joinGameAction(game.id, player);
     }
   };
 
