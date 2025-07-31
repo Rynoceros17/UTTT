@@ -4,7 +4,7 @@
 import Cell from './Cell';
 import { XIcon } from './icons/XIcon';
 import { OIcon } from './icons/OIcon';
-import type { CellState, PlayerSymbol, BoardState, Player } from '@/types';
+import type { CellState, PlayerSymbol, BoardState } from '@/types';
 import { cn } from '@/lib/utils';
 import { checkWinner } from '@/lib/gameLogic';
 
@@ -15,11 +15,10 @@ interface LocalBoardProps {
   isActive: boolean;
   isClickable: boolean;
   playerSymbol: PlayerSymbol;
-  gameId: string;
-  currentPlayer: Player | null;
+  onCellClick: (localBoardIndex: number, cellIndex: number) => void;
 }
 
-export default function LocalBoard({ localBoardIndex, cells, winner, isActive, isClickable, playerSymbol, gameId, currentPlayer }: LocalBoardProps) {
+export default function LocalBoard({ localBoardIndex, cells, winner, isActive, isClickable, playerSymbol, onCellClick }: LocalBoardProps) {
   const localWinnerCheck = checkWinner(cells);
   const localWinningLine = localWinnerCheck.winner && localWinnerCheck.winner !== 'D' ? localWinnerCheck.winningLine : null;
   
@@ -40,9 +39,8 @@ export default function LocalBoard({ localBoardIndex, cells, winner, isActive, i
           value={cell}
           isClickable={isClickable && isActive && !winner && cell === null}
           playerSymbol={playerSymbol}
-          gameId={gameId}
           isInWinningLine={localWinningLine?.includes(i) ?? false}
-          currentPlayer={currentPlayer}
+          onCellClick={onCellClick}
         />
       ))}
       {winner && winner !== 'D' && (

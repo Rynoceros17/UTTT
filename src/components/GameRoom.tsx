@@ -3,8 +3,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Game } from '@/types';
-import { joinGameAction, forfeitGameAction } from '@/actions/gameActions';
+import type { Game, PlayerSymbol } from '@/types';
+import { joinGameAction, forfeitGameAction, makeMoveAction } from '@/actions/gameActions';
+import { applyMove } from '@/lib/gameLogic';
 import { useToast } from '@/hooks/use-toast';
 import GameBoard from './GameBoard';
 import PlayerInfo from './PlayerInfo';
@@ -49,6 +50,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
         if (doc.exists()) {
             const newGame = doc.data() as Game;
             setGame((prevGame) => {
+                // Only show confetti if the winner has just been decided
                 if (prevGame && prevGame.winner !== newGame.winner && newGame.winner) {
                     const currentPlayerIsX = player?.uid === newGame.xPlayer.uid;
                     const playerSymbol = currentPlayerIsX ? 'X' : 'O';
@@ -78,6 +80,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
       await joinGameAction(game.id, player);
+      router.push(`/game/${gameId}`);
     }
   };
 
@@ -85,6 +88,36 @@ export function GameRoom({ gameId }: { gameId: string }) {
     if (!player || !game) return;
     await forfeitGameAction(game.id, player.uid);
   };
+
+  const handleMakeMove = async (localBoardIndex: number, cellIndex: number) => {
+    if (!game || !player) return;
+
+    const isPlayerX = player.uid === game.xPlayer.uid;
+    const playerSymbol = isPlayerX ? 'X' : 'O';
+    const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
+    const isSpectator = !isPlayerX && !(player.uid === game.oPlayer?.uid);
+
+    if (!isPlayerTurn || isSpectator) return;
+    
+    // Optimistic UI update
+    const previousGame = game;
+    const move = { gameId: game.id, player: playerSymbol, localBoardIndex, cellIndex };
+    const optimisticGame = applyMove(game, move);
+    setGame(optimisticGame);
+
+    const result = await makeMoveAction(game.id, move);
+
+    if (!result.success) {
+      setGame(previousGame); // Revert on error
+      toast({
+        title: "Invalid Move",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
+    // On success, we don't need to do anything, the onSnapshot listener will handle the update
+  };
+
 
   if (isLoading || authLoading || !player) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
@@ -96,9 +129,9 @@ export function GameRoom({ gameId }: { gameId: string }) {
   
   const isPlayerX = player.uid === game.xPlayer.uid;
   const isPlayerO = player.uid === game.oPlayer?.uid;
+  const isSpectator = !isPlayerX && !isPlayerO;
 
   if (game.status === 'waiting') {
-    // Player X is waiting for an opponent
     if (isPlayerX) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
@@ -108,8 +141,8 @@ export function GameRoom({ gameId }: { gameId: string }) {
         </div>
       );
     }
-    // A different player is looking at the waiting game
-    if (!isPlayerO) {
+    // Spectator view of a waiting game
+    if (isSpectator) {
        return (
         <div className="flex flex-col items-center justify-center h-full gap-4">
           <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
@@ -123,8 +156,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
   
   const playerSymbol = isPlayerX ? 'X' : 'O';
   const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
-  const isSpectator = !isPlayerX && !isPlayerO;
-  const currentPlayerInGame = playerSymbol === 'X' ? game.xPlayer : game.oPlayer;
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
@@ -138,7 +169,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
                     playerSymbol={playerSymbol} 
                     isPlayerTurn={isPlayerTurn} 
                     isSpectator={isSpectator}
-                    currentPlayer={currentPlayerInGame}
+                    onMakeMove={handleMakeMove}
                 />
             </CardContent>
         </Card>

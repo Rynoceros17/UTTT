@@ -3,10 +3,8 @@
 
 import { XIcon } from './icons/XIcon';
 import { OIcon } from './icons/OIcon';
-import { makeMoveAction } from '@/actions/gameActions';
-import type { CellState, PlayerSymbol, Player } from '@/types';
+import type { CellState, PlayerSymbol } from '@/types';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 
 interface CellProps {
   localBoardIndex: number;
@@ -14,33 +12,14 @@ interface CellProps {
   value: CellState;
   isClickable: boolean;
   playerSymbol: PlayerSymbol;
-  gameId: string;
   isInWinningLine: boolean;
-  currentPlayer: Player | null;
+  onCellClick: (localBoardIndex: number, cellIndex: number) => void;
 }
 
-export default function Cell({ localBoardIndex, cellIndex, value, isClickable, playerSymbol, gameId, isInWinningLine, currentPlayer }: CellProps) {
-  const { toast } = useToast();
-
-  const handleCellClick = async () => {
-    if (!isClickable || !currentPlayer) return;
-
-    try {
-      const result = await makeMoveAction(gameId, { gameId, player: playerSymbol, localBoardIndex, cellIndex });
-      if (!result.success) {
-        toast({
-          title: "Invalid Move",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error making move:", error);
-      toast({
-        title: "Error",
-        description: "Could not make move.",
-        variant: "destructive",
-      });
+export default function Cell({ localBoardIndex, cellIndex, value, isClickable, playerSymbol, isInWinningLine, onCellClick }: CellProps) {
+  const handleCellClick = () => {
+    if (isClickable) {
+      onCellClick(localBoardIndex, cellIndex);
     }
   };
 

@@ -18,20 +18,19 @@ export async function createGameAction(player: Player): Promise<void> {
 }
 
 export async function joinGameAction(gameId: string, player: Player): Promise<void> {
-  const game = await db_firestore.games.find(gameId);
-  if (game && game.status === 'waiting') {
-    game.oPlayer = player;
-    game.status = 'live';
-    game.playerIds.push(player.uid);
-    
-    await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
+    const game = await db_firestore.games.find(gameId);
+    if (game && game.status === 'waiting') {
+        game.oPlayer = player;
+        game.status = 'live';
+        game.playerIds.push(player.uid);
+        
+        await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
 
-    await db_firestore.games.save(game);
-    redirect(`/game/${gameId}`);
-  }
+        await db_firestore.games.save(game);
+    }
 }
 
-export async function makeMoveAction(gameId: string, move: Move): Promise<{ success: boolean; message?: string }> {
+export async function makeMoveAction(gameId: string, move: Move): Promise<{ success: boolean; game?: Game; message?: string }> {
   try {
     const updatedGame = await runTransaction(db, async (transaction) => {
         const gameRef = doc(db, 'games', gameId);
@@ -44,31 +43,31 @@ export async function makeMoveAction(gameId: string, move: Move): Promise<{ succ
         const game = gameDoc.data() as Game;
 
         if (game.status !== 'live') {
-            return { success: false, message: 'Game is not active.' };
+            throw new Error('Game is not active.');
         }
 
         const { player, localBoardIndex, cellIndex } = move;
         
         const currentPlayer = player === 'X' ? game.xPlayer : game.oPlayer;
         if (!currentPlayer) {
-            return { success: false, message: 'Player not in game.' };
+            throw new Error('Player not in game.');
         }
 
         if (game.nextTurn !== player) {
-            return { success: false, message: 'Not your turn.' };
+            throw new Error('Not your turn.');
         }
 
         if (game.activeLocalBoard !== null && game.activeLocalBoard !== localBoardIndex) {
-            return { success: false, message: 'You must play in the indicated board.' };
+            throw new Error('You must play in the indicated board.');
         }
         
         const flatIndex = localBoardIndex * 9 + cellIndex;
         if (game.localBoards[flatIndex] !== null) {
-            return { success: false, message: 'Cell already taken.' };
+            throw new Error('Cell already taken.');
         }
 
         if (game.globalBoard[localBoardIndex] !== null) {
-            return { success: false, message: 'This local board has already been decided.'}
+            throw new Error('This local board has already been decided.');
         }
 
         const newGameState = applyMove(game, move);
@@ -97,7 +96,7 @@ export async function makeMoveAction(gameId: string, move: Move): Promise<{ succ
         transaction.set(gameRef, newGameState);
         return newGameState;
     });
-    return { success: true };
+    return { success: true, game: updatedGame as Game };
   } catch (error: any) {
     console.error("Error making move:", error);
     return { success: false, message: error.message };

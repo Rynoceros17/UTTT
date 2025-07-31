@@ -10,10 +10,10 @@ interface GameBoardProps {
   playerSymbol: PlayerSymbol;
   isPlayerTurn: boolean;
   isSpectator: boolean;
-  currentPlayer: Player | null;
+  onMakeMove: (localBoardIndex: number, cellIndex: number) => void;
 }
 
-export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectator, currentPlayer }: GameBoardProps) {
+export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectator, onMakeMove }: GameBoardProps) {
   const { localBoards, globalBoard, activeLocalBoard, winner, winningLine } = game;
   const globalWinningLine = winner && winner !== 'D' ? winningLine : null;
 
@@ -31,8 +31,7 @@ export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectato
               isActive={activeLocalBoard === i || (activeLocalBoard === null && globalBoard[i] === null)}
               isClickable={isPlayerTurn && !isSpectator}
               playerSymbol={playerSymbol}
-              gameId={game.id}
-              currentPlayer={currentPlayer}
+              onCellClick={onMakeMove}
             />
           );
         })}
