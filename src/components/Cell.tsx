@@ -1,9 +1,10 @@
+
 'use client';
 
 import { XIcon } from './icons/XIcon';
 import { OIcon } from './icons/OIcon';
 import { makeMoveAction } from '@/actions/gameActions';
-import type { CellState, PlayerSymbol } from '@/types';
+import type { CellState, PlayerSymbol, Player } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -15,16 +16,17 @@ interface CellProps {
   playerSymbol: PlayerSymbol;
   gameId: string;
   isInWinningLine: boolean;
+  currentPlayer: Player | null;
 }
 
-export default function Cell({ localBoardIndex, cellIndex, value, isClickable, playerSymbol, gameId, isInWinningLine }: CellProps) {
+export default function Cell({ localBoardIndex, cellIndex, value, isClickable, playerSymbol, gameId, isInWinningLine, currentPlayer }: CellProps) {
   const { toast } = useToast();
 
   const handleCellClick = async () => {
-    if (!isClickable || !playerSymbol) return;
+    if (!isClickable || !currentPlayer) return;
 
     try {
-      const result = await makeMoveAction(gameId, { playerSymbol, localBoardIndex, cellIndex }, playerSymbol === 'X' ? 'player1' : 'player2'); // Placeholder IDs
+      const result = await makeMoveAction(gameId, { gameId, player: playerSymbol, localBoardIndex, cellIndex });
       if (!result.success) {
         toast({
           title: "Invalid Move",

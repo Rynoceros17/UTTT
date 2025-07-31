@@ -1,26 +1,29 @@
+
 import type { Game, Player } from '@/types';
 
-// In-memory store to simulate a database
+// In-memory store to simulate Redis (ephemeral) + Firestore (persistent)
 const games = new Map<string, Game>();
 const players = new Map<string, Player>();
 
+// This is a simple in-memory implementation. 
+// In a production environment, you'd replace this with a real-time database 
+// like Firestore for game state and a presence solution.
 export const db = {
   games: {
-    find: (id: string) => games.get(id),
-    findAll: () => Array.from(games.values()),
-    findByPlayerId: (playerId: string) => {
-      return Array.from(games.values()).filter(
-        (game) =>
-          (game.xPlayer && game.xPlayer.id === playerId) ||
-          (game.oPlayer && game.oPlayer.id === playerId)
-      );
+    find: (id: string): Game | undefined => games.get(id),
+    findAll: (): Game[] => Array.from(games.values()),
+    save: (game: Game): Game => {
+      games.set(game.id, game);
+      return game;
     },
-    save: (game: Game) => games.set(game.id, game),
-    delete: (id: string) => games.delete(id),
+    delete: (id: string): boolean => games.delete(id),
   },
   players: {
     find: (id: string) => players.get(id),
     findAll: () => Array.from(players.values()),
-    save: (player: Player) => players.set(player.id, player),
+    save: (player: Player) => {
+        players.set(player.id, player);
+        return player;
+    }
   },
 };

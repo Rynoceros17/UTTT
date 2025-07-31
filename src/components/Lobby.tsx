@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Users, LogIn, PlusCircle } from 'lucide-react';
+import { LogIn, PlusCircle } from 'lucide-react';
 
 export default function Lobby() {
   const [player, setPlayer] = useState<Player | null>(null);
@@ -24,7 +25,7 @@ export default function Lobby() {
     }
     fetchGames();
     
-    const interval = setInterval(fetchGames, 5000); // Poll for new games
+    const interval = setInterval(fetchGames, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -49,24 +50,16 @@ export default function Lobby() {
 
   const handleCreateGame = async () => {
     if (player) {
-      try {
-        await createGameAction(player);
-      } catch (error) {
-        toast({ title: "Error creating game", variant: "destructive" });
-      }
+      await createGameAction(player);
     }
   };
 
   const handleJoinGame = async (gameId: string) => {
     if (player) {
-      try {
-        await joinGameAction(gameId, player);
-      } catch (error) {
-        toast({ title: "Error joining game", variant: "destructive" });
-      }
+      await joinGameAction(gameId, player);
     }
   };
-  
+
   const handleSpectateGame = (gameId: string) => {
     router.push(`/game/${gameId}`);
   };
@@ -100,7 +93,7 @@ export default function Lobby() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <div >
+            <div>
               <CardTitle className="font-headline text-2xl">Game Lobby</CardTitle>
               <CardDescription>Welcome, {player.name}! Join a game or create a new one.</CardDescription>
             </div>
@@ -126,7 +119,7 @@ export default function Lobby() {
                   </CardContent>
                 </Card>
               ))}
-               {games.filter(g => g.status === 'waiting').length === 0 && (
+              {games.filter(g => g.status === 'waiting').length === 0 && (
                 <p className="text-muted-foreground col-span-full text-center py-4">No waiting games. Why not create one?</p>
               )}
             </div>
@@ -134,22 +127,22 @@ export default function Lobby() {
           <div className="space-y-4 mt-8">
             <h3 className="text-lg font-headline font-semibold">Live Games</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {games.filter(g => g.status === 'live').map((game) => (
-                    <Card key={game.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4 flex justify-between items-center">
-                            <div>
-                            <p className="font-semibold">{game.xPlayer.name} vs. {game.oPlayer?.name}</p>
-                            <p className="text-sm text-muted-foreground">Game in progress</p>
-                            </div>
-                            <Button onClick={() => handleSpectateGame(game.id)} variant="outline">
-                                Spectate
-                            </Button>
-                        </CardContent>
-                    </Card>
-                ))}
-                {games.filter(g => g.status === 'live').length === 0 && (
-                    <p className="text-muted-foreground col-span-full text-center py-4">No live games at the moment.</p>
-                )}
+              {games.filter(g => g.status === 'live').map((game) => (
+                <Card key={game.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4 flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold">{game.xPlayer.name} vs. {game.oPlayer?.name}</p>
+                      <p className="text-sm text-muted-foreground">Game in progress</p>
+                    </div>
+                    <Button onClick={() => handleSpectateGame(game.id)} variant="outline">
+                      Spectate
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+              {games.filter(g => g.status === 'live').length === 0 && (
+                <p className="text-muted-foreground col-span-full text-center py-4">No live games at the moment.</p>
+              )}
             </div>
           </div>
         </CardContent>

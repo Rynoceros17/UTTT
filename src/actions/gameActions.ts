@@ -1,3 +1,4 @@
+
 'use server';
 
 import { redirect } from 'next/navigation';
@@ -5,79 +6,52 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/state';
 import { createNewGame, applyMove } from '@/lib/gameLogic';
 import type { Player, Game, Move, PlayerSymbol } from '@/types';
-import { autoForfeitOnDisconnect } from '@/ai/flows/auto-forfeit-on-disconnect';
 
-async function forfeitPlayerFromAllGames(player: Player) {
-  const gamesToForfeit = db.games.findByPlayerId(player.id);
-  for (const game of gamesToForfeit) {
-    if (game.status === 'live' || game.status === 'waiting') {
-      // If it's a waiting game, just delete it.
-      if (game.status === 'waiting' && game.xPlayer.id === player.id) {
-        db.games.delete(game.id);
-      } else if (game.status === 'live') {
-        // If it's a live game, forfeit.
-        const opponent = game.xPlayer.id === player.id ? game.oPlayer : game.xPlayer;
-        if (opponent) {
-            game.status = 'finished';
-            game.winner = opponent.id === game.xPlayer.id ? 'X' : 'O';
-            db.games.save(game);
-        } else {
-            // No opponent, just end the game.
-            db.games.delete(game.id);
-        }
-      }
-    }
-  }
-}
-
-export async function createGameAction(player: Player) {
-  await forfeitPlayerFromAllGames(player);
+export async function createGameAction(player: Player): Promise<void> {
   const gameId = Math.random().toString(36).substring(2, 9);
   const game = createNewGame(gameId, player);
   db.games.save(game);
   redirect(`/game/${gameId}`);
 }
 
-export async function joinGameAction(gameId: string, player: Player) {
-  await forfeitPlayerFromAllGames(player);
+export async function joinGameAction(gameId: string, player: Player): Promise<void> {
   const game = db.games.find(gameId);
-  if (game && game.status === 'waiting' && game.xPlayer.id !== player.id) {
+  if (game && game.status === 'waiting') {
     game.oPlayer = player;
     game.status = 'live';
     db.games.save(game);
-  } else {
-    // Handle error: game not found, already full, or player is X
   }
   redirect(`/game/${gameId}`);
 }
 
-export async function makeMoveAction(gameId: string, move: Move, playerId: string): Promise<{ success: boolean; message?: string }> {
+export async function makeMoveAction(gameId: string, move: Move): Promise<{ success: boolean; message?: string }> {
   const game = db.games.find(gameId);
+
   if (!game || game.status !== 'live') {
     return { success: false, message: 'Game not found or is not active.' };
   }
 
-  const { playerSymbol, localBoardIndex, cellIndex } = move;
-
-  const currentPlayer = playerSymbol === 'X' ? game.xPlayer : game.oPlayer;
-  if (currentPlayer?.id !== playerId) {
-    return { success: false, message: 'Not your piece.' };
+  const { player, localBoardIndex, cellIndex } = move;
+  
+  const currentPlayer = player === 'X' ? game.xPlayer : game.oPlayer;
+  if (!currentPlayer) {
+      return { success: false, message: 'Player not in game.' };
   }
 
-  if (game.nextTurn !== playerSymbol) {
+  if (game.nextTurn !== player) {
     return { success: false, message: 'Not your turn.' };
   }
 
   if (game.activeLocalBoard !== null && game.activeLocalBoard !== localBoardIndex) {
-    return { success: false, message: 'Invalid board.' };
+    return { success: false, message: 'You must play in the indicated board.' };
   }
 
   if (game.localBoards[localBoardIndex][cellIndex] !== null) {
     return { success: false, message: 'Cell already taken.' };
   }
-  
+
   if (game.globalBoard[localBoardIndex] !== null) {
-    return { success: false, message: 'This board is already won or drawn.'}
+      return { success: false, message: 'This local board has already been decided.'}
   }
 
   const updatedGame = applyMove(game, move);
@@ -95,35 +69,23 @@ export async function getGamesAction(): Promise<Game[]> {
   return db.games.findAll();
 }
 
-export async function forfeitGameAction(gameId: string, forfeitingPlayerId: string): Promise<{ summary: string, message: string }> {
+export async function forfeitGameAction(gameId: string, playerId: string): Promise<void> {
     const game = db.games.find(gameId);
-    if (!game) {
-        throw new Error('Game not found');
+    if (!game) return;
+
+    if (game.status === 'waiting') {
+        db.games.delete(gameId);
+        return;
     }
 
-    const opponent = game.xPlayer.id === forfeitingPlayerId ? game.oPlayer : game.xPlayer;
-    if (!opponent) {
-        // If no opponent, just delete the game.
-        db.games.delete(game.id);
-        revalidatePath('/');
-        return {
-            summary: "The game was cancelled as the opponent left before it started.",
-            message: "The opponent left the game."
+    if (game.status === 'live') {
+        const opponent = game.xPlayer.id === playerId ? game.oPlayer : game.xPlayer;
+        if(opponent) {
+            game.winner = game.xPlayer.id === opponent.id ? 'X' : 'O';
         }
+        game.status = 'finished';
+        db.games.save(game);
+        revalidatePath(`/game/${gameId}`);
+        revalidatePath('/');
     }
-
-    game.status = 'finished';
-    game.winner = opponent.id === game.xPlayer.id ? 'X' : 'O';
-    db.games.save(game);
-    
-    revalidatePath(`/game/${gameId}`);
-
-    const result = await autoForfeitOnDisconnect({
-        gameId,
-        playerId: forfeitingPlayerId,
-        opponentId: opponent.id,
-        gameState: JSON.stringify(game),
-    });
-
-    return result;
 }

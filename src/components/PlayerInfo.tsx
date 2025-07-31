@@ -1,4 +1,5 @@
-import type { Game } from '@/types';
+
+import type { Game, Player } from '@/types';
 import { Card, CardContent } from './ui/card';
 import { XIcon } from './icons/XIcon';
 import { OIcon } from './icons/OIcon';
@@ -15,7 +16,7 @@ export default function PlayerInfo({ game, currentPlayerId }: PlayerInfoProps) {
   const isXPlayer = currentPlayerId === xPlayer.id;
   const isOPlayer = currentPlayerId === oPlayer?.id;
   
-  const PlayerCard = ({ player, symbol, isTurn, isWinner, isYou }: { player: {name: string}, symbol: 'X' | 'O', isTurn: boolean, isWinner: boolean, isYou: boolean }) => (
+  const PlayerCard = ({ player, symbol, isTurn, isWinner, isYou }: { player: Player, symbol: 'X' | 'O', isTurn: boolean, isWinner: boolean, isYou: boolean }) => (
     <Card className={cn("transition-all", isTurn && status === 'live' ? 'ring-2 ring-accent shadow-lg' : 'shadow-sm')}>
       <CardContent className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -55,7 +56,7 @@ export default function PlayerInfo({ game, currentPlayerId }: PlayerInfoProps) {
                 <CardContent className="p-4 flex items-center gap-3 text-muted-foreground">
                     <User className="w-8 h-8" />
                     <div>
-                        <p className="font-semibold font-headline">Waiting for Player O</p>
+                        <p className="font-semibold font-headline">Waiting for Player O...</p>
                     </div>
                 </CardContent>
             </Card>

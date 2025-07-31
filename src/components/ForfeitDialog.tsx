@@ -1,4 +1,10 @@
+
 'use client';
+
+// This component is not currently in use.
+// It can be used to display a dialog when a game is forfeited.
+// You would typically show a summary of the game and the reason for the forfeit.
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,25 +18,23 @@ import {
 interface ForfeitDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  result: {
-    summary: string;
-    message: string;
-  };
+  summary: string;
+  message: string;
 }
 
-export function ForfeitDialog({ isOpen, onClose, result }: ForfeitDialogProps) {
+export function ForfeitDialog({ isOpen, onClose, summary, message }: ForfeitDialogProps) {
   return (
     <AlertDialog open={isOpen} onOpenChange={onClose}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Game Forfeited</AlertDialogTitle>
           <AlertDialogDescription>
-            {result.message}
+            {message}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="prose prose-sm max-h-60 overflow-y-auto rounded-md border p-4">
             <h4 className="font-bold">Game Summary:</h4>
-            <p>{result.summary}</p>
+            <p>{summary}</p>
         </div>
         <AlertDialogFooter>
           <AlertDialogAction onClick={onClose}>Close</AlertDialogAction>

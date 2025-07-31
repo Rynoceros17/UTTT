@@ -1,15 +1,15 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Game, Player } from '@/types';
-import { getGameAction, joinGameAction, makeMoveAction, forfeitGameAction } from '@/actions/gameActions';
+import { getGameAction, joinGameAction, forfeitGameAction } from '@/actions/gameActions';
 import { useToast } from '@/hooks/use-toast';
 import GameBoard from './GameBoard';
 import PlayerInfo from './PlayerInfo';
 import GameStatus from './GameStatus';
 import { Button } from './ui/button';
-import { ForfeitDialog } from './ForfeitDialog';
 import { Card, CardContent } from './ui/card';
 import { Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -18,24 +18,19 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<Game | null>(null);
   const [player, setPlayer] = useState<Player | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isForfeitDialogOpen, setIsForfeitDialogOpen] = useState(false);
-  const [forfeitResult, setForfeitResult] = useState<{ summary: string, message: string } | null>(null);
   
   const router = useRouter();
   const { toast } = useToast();
-
-  const playerSymbol = player?.id === game?.xPlayer.id ? 'X' : 'O';
-  const isPlayerTurn = game?.nextTurn === playerSymbol && game?.status === 'live';
-  const isSpectator = player && game && player.id !== game.xPlayer.id && player.id !== game.oPlayer?.id;
 
   const fetchGame = useCallback(async () => {
     try {
       const g = await getGameAction(gameId);
       if (g) {
         if (game && game.winner !== g.winner && g.winner) {
-          if (g.winner === playerSymbol) {
-            confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
-          }
+            const playerSymbol = player?.id === g.xPlayer.id ? 'X' : 'O';
+            if (g.winner === playerSymbol) {
+                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+            }
         }
         setGame(g);
       } else {
@@ -48,7 +43,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     } finally {
       setIsLoading(false);
     }
-  }, [gameId, router, toast, game, playerSymbol]);
+  }, [gameId, router, toast, game, player]);
 
   useEffect(() => {
     const storedPlayer = localStorage.getItem('ttt-player');
@@ -56,12 +51,25 @@ export function GameRoom({ gameId }: { gameId: string }) {
       setPlayer(JSON.parse(storedPlayer));
     } else {
       router.push('/');
+      return;
     }
-    fetchGame();
 
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (player && game && game.status === 'live') {
+        forfeitGameAction(game.id, player.id);
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    fetchGame();
     const intervalId = setInterval(fetchGame, 2000);
-    return () => clearInterval(intervalId);
-  }, [fetchGame, router]);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [fetchGame, router, player, game]);
   
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
@@ -71,29 +79,27 @@ export function GameRoom({ gameId }: { gameId: string }) {
 
   const handleForfeit = async () => {
     if (!player || !game) return;
-    try {
-      const result = await forfeitGameAction(game.id, player.id);
-      setForfeitResult(result);
-      setIsForfeitDialogOpen(true);
-    } catch (error) {
-      toast({ title: "Failed to forfeit", variant: "destructive" });
-    }
+    await forfeitGameAction(game.id, player.id);
   };
 
-  if (isLoading) {
+  if (isLoading || !player) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
   }
 
   if (!game) {
-    return <div>Game not found.</div>;
+    return <div>Game not found. Going back to lobby...</div>;
   }
 
-  const isWaitingForYouToJoin = game.status === 'waiting' && player && game.xPlayer.id !== player.id && !game.oPlayer;
+  const playerSymbol = player.id === game.xPlayer.id ? 'X' : 'O';
+  const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
+  const isSpectator = player.id !== game.xPlayer.id && player.id !== game.oPlayer?.id;
+  const currentPlayer = playerSymbol === 'X' ? game.xPlayer : game.oPlayer;
+
+  const isWaitingForYouToJoin = game.status === 'waiting' && player.id !== game.xPlayer.id && !game.oPlayer;
   if (isWaitingForYouToJoin) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
-        <h2 className="text-2xl font-headline">Waiting for O...</h2>
-        <p>{game.xPlayer.name} is waiting for an opponent.</p>
+        <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
         <Button onClick={handleJoinGame}>Join as Player O</Button>
       </div>
     );
@@ -106,7 +112,13 @@ export function GameRoom({ gameId }: { gameId: string }) {
       <div className="flex-grow w-full max-w-2xl mx-auto">
         <Card className="shadow-xl">
             <CardContent className="p-2 sm:p-4">
-                <GameBoard game={game} playerSymbol={playerSymbol} isPlayerTurn={isPlayerTurn} isSpectator={isSpectator} />
+                <GameBoard 
+                    game={game} 
+                    playerSymbol={playerSymbol} 
+                    isPlayerTurn={isPlayerTurn} 
+                    isSpectator={isSpectator}
+                    currentPlayer={currentPlayer}
+                />
             </CardContent>
         </Card>
         <GameStatus game={game} playerSymbol={playerSymbol} />
@@ -129,13 +141,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
           </CardContent>
         </Card>
       </div>
-      {forfeitResult && (
-        <ForfeitDialog
-          isOpen={isForfeitDialogOpen}
-          onClose={() => setIsForfeitDialogOpen(false)}
-          result={forfeitResult}
-        />
-      )}
     </div>
   );
 }

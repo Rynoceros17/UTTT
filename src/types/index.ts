@@ -1,3 +1,4 @@
+
 export type PlayerSymbol = 'X' | 'O';
 export type CellState = PlayerSymbol | null;
 export type BoardState = PlayerSymbol | 'D' | null;
@@ -8,7 +9,8 @@ export type Player = {
 };
 
 export type Move = {
-  playerSymbol: PlayerSymbol;
+  gameId: string;
+  player: PlayerSymbol;
   localBoardIndex: number;
   cellIndex: number;
 };

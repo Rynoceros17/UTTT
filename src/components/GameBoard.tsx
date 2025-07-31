@@ -1,22 +1,20 @@
+
 'use client';
 
 import LocalBoard from './LocalBoard';
-import type { Game, PlayerSymbol } from '@/types';
-import { cn } from '@/lib/utils';
+import type { Game, PlayerSymbol, Player } from '@/types';
 import { WINNING_COMBINATIONS } from '@/lib/gameLogic';
-import { useState } from 'react';
 
 interface GameBoardProps {
   game: Game;
   playerSymbol: PlayerSymbol;
   isPlayerTurn: boolean;
   isSpectator: boolean;
+  currentPlayer: Player | null;
 }
 
-export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectator }: GameBoardProps) {
+export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectator, currentPlayer }: GameBoardProps) {
   const { localBoards, globalBoard, activeLocalBoard, winner, winningLine } = game;
-  const [hoveredLine, setHoveredLine] = useState<number[] | null>(null);
-
   const globalWinningLine = winner && winner !== 'D' ? winningLine : null;
 
   return (
@@ -32,6 +30,7 @@ export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectato
             isClickable={isPlayerTurn && !isSpectator}
             playerSymbol={playerSymbol}
             gameId={game.id}
+            currentPlayer={currentPlayer}
           />
         ))}
       </div>
