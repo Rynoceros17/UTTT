@@ -45,9 +45,8 @@ export default function Cell({ localBoardIndex, cellIndex, value, isClickable, p
   };
 
   const cellClasses = cn(
-    'relative flex items-center justify-center aspect-square rounded-sm transition-colors duration-200',
-    isClickable ? 'cursor-pointer bg-background hover:bg-primary/20' : 'bg-card',
-    value === null && isClickable && 'after:content-[""] after:absolute after:inset-0 after:rounded-sm after:bg-accent after:opacity-0 hover:after:opacity-100 after:transition-opacity',
+    'relative group flex items-center justify-center aspect-square rounded-sm transition-colors duration-200',
+    isClickable ? 'cursor-pointer bg-background hover:bg-primary/10' : 'bg-card',
     isInWinningLine && 'bg-accent/30'
   );
 
@@ -55,6 +54,17 @@ export default function Cell({ localBoardIndex, cellIndex, value, isClickable, p
     <div className={cellClasses} onClick={handleCellClick} role="button" aria-label={`Cell ${cellIndex}`}>
       {value === 'X' && <XIcon className="w-2/3 h-2/3 text-primary animate-in fade-in zoom-in-50" />}
       {value === 'O' && <OIcon className="w-2/3 h-2/3 text-accent animate-in fade-in zoom-in-50" />}
+      
+      {isClickable && value === null && (
+        <>
+          {playerSymbol === 'X' && (
+            <XIcon className="w-2/3 h-2/3 text-primary opacity-0 group-hover:opacity-40 transition-opacity" />
+          )}
+          {playerSymbol === 'O' && (
+            <OIcon className="w-2/3 h-2/3 text-accent opacity-0 group-hover:opacity-40 transition-opacity" />
+          )}
+        </>
+      )}
     </div>
   );
 }
