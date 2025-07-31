@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Game, PlayerSymbol } from '@/types';
 import { joinGameAction, forfeitGameAction, makeMoveAction } from '@/actions/gameActions';
@@ -22,18 +22,26 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<Game | null>(null);
   const { player, loading: authLoading } = useAuth();
   const [isJoining, setIsJoining] = useState(false);
-  
   const router = useRouter();
   const { toast } = useToast();
+  const hasConfettied = useRef(false);
 
   const handleBeforeUnload = useCallback((e: BeforeUnloadEvent) => {
       if (game && game.status === 'live' && player) {
         const isPlayerInGame = game.playerIds.includes(player.uid);
         if (isPlayerInGame) {
+          // This action is fire-and-forget
           forfeitGameAction(game.id, player.uid);
         }
       }
   }, [game, player]);
+
+  useEffect(() => {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [handleBeforeUnload]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -41,8 +49,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
       router.push('/');
       return;
     }
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
 
     const gameDocRef = doc(db, 'games', gameId);
     
@@ -53,37 +59,40 @@ export function GameRoom({ gameId }: { gameId: string }) {
                 if (prevGame && prevGame.status === 'waiting' && newGame.status === 'live') {
                     setIsJoining(false);
                 }
-                // Only show confetti if the winner has just been decided
-                if (prevGame && prevGame.winner !== newGame.winner && newGame.winner) {
-                    const currentPlayerIsX = player?.uid === newGame.xPlayer.uid;
-                    const playerSymbol = currentPlayerIsX ? 'X' : 'O';
+                
+                if (newGame.status === 'finished' && !hasConfettied.current) {
+                    const playerSymbol = player?.uid === newGame.xPlayer.uid ? 'X' : 'O';
                     if (newGame.winner === playerSymbol) {
                         confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+                        hasConfettied.current = true;
                     }
                 }
                 return newGame;
             });
         } else {
-            toast({ title: "Game not found", variant: "destructive" });
+            toast({ title: "Game not found or has been deleted", variant: "destructive" });
             router.push('/');
         }
     }, (error) => {
         console.error("Failed to subscribe to game updates:", error);
-        toast({ title: "Error fetching game", variant: "destructive" });
+        toast({ title: "Error fetching game data", variant: "destructive" });
     });
 
     return () => {
       unsubscribe();
-      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [authLoading, player, gameId, router, toast, handleBeforeUnload]);
+  }, [authLoading, player, gameId, router, toast]);
   
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
       setIsJoining(true);
       try {
-        await joinGameAction(game.id, player);
-        // Navigation is handled by the real-time listener updating the state
+        const result = await joinGameAction(game.id, player);
+         if (!result.success) {
+            toast({ title: "Failed to join game", description: result.message, variant: "destructive" });
+            setIsJoining(false);
+         }
+         // On success, the real-time listener will update the game state for all clients
       } catch (error: any) {
          toast({ title: "Failed to join game", description: error.message, variant: "destructive" });
          setIsJoining(false);
@@ -104,7 +113,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     const playerSymbol = isPlayerX ? 'X' : 'O';
     const isSpectator = !isPlayerX && !(player.uid === game.oPlayer?.uid);
 
-    // Client-side validation
+    // Instant client-side validation
     if (game.status !== 'live' || isSpectator || game.nextTurn !== playerSymbol) {
         return;
     }
@@ -114,7 +123,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     }
     const flatIndex = localBoardIndex * 9 + cellIndex;
     if (game.localBoards[flatIndex] !== null) {
-        return; // Clicked on an already taken cell
+        return; // Cell already taken, no feedback needed
     }
     
     // Optimistic UI update
@@ -123,11 +132,11 @@ export function GameRoom({ gameId }: { gameId: string }) {
     const optimisticGame = applyMove(game, move);
     setGame(optimisticGame);
 
-    // Send move to server
+    // Send move to server for validation and broadcast
     const result = await makeMoveAction(game.id, move);
 
     if (!result.success) {
-      // Revert on error
+      // If server rejects move, revert the UI and show error
       setGame(previousGame); 
       toast({
         title: "Invalid Move",
@@ -135,46 +144,42 @@ export function GameRoom({ gameId }: { gameId: string }) {
         variant: "destructive",
       });
     }
-    // On success, we don't need to do anything.
-    // The onSnapshot listener will receive the update from the server,
-    // which will match our optimistic state.
+    // On success, we do nothing. The `onSnapshot` listener will receive the official
+    // update from the server, which will match our optimistic state, ensuring a smooth sync.
   };
-
 
   if (authLoading || !game || !player) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
   }
   
-  const isPlayerX = player.uid === game.xPlayer.uid;
-  const isPlayerO = player.uid === game.oPlayer?.uid;
-  
   if (game.status === 'waiting') {
+    const isPlayerX = player.uid === game.xPlayer.uid;
     // Player X is waiting for an opponent
     if (isPlayerX) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-          <h2 className="text-2xl font-headline">Waiting for an opponent to join...</h2>
-          <p className="text-muted-foreground">Share the game ID or have them find it in the lobby.</p>
+          <h2 className="text-2xl font-headline">Waiting for an opponent...</h2>
+          <p className="text-muted-foreground">Share this game ID with a friend:</p>
           <p className="font-bold text-lg p-2 bg-muted rounded-md tracking-widest">{game.id}</p>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       );
     }
     
-    // Another player (not X or O yet) is viewing the waiting game
-    if (!isPlayerO) {
-       return (
-         <div className="flex flex-col items-center justify-center h-full gap-4">
-           <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
-           <Button onClick={handleJoinGame} disabled={isJoining}>
-            {isJoining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Join as Player O
-           </Button>
-         </div>
-       );
-    }
+    // Another player (not X) is viewing the waiting game
+    return (
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+        <h2 className="text-2xl font-headline">{game.xPlayer.name} is looking for a challenger.</h2>
+        <Button onClick={handleJoinGame} disabled={isJoining}>
+        {isJoining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        Join Game
+        </Button>
+        </div>
+    );
   }
   
+  const isPlayerX = player.uid === game.xPlayer.uid;
+  const isPlayerO = !!game.oPlayer && player.uid === game.oPlayer.uid;
   const isSpectator = !isPlayerX && !isPlayerO;
   const playerSymbol = isPlayerX ? 'X' : (isPlayerO ? 'O' : 'X');
   const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';

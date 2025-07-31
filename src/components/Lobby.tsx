@@ -18,7 +18,7 @@ import { auth, db } from '@/lib/firebase';
 import { db_firestore } from '@/lib/state';
 import * as React from 'react';
 import { Leaderboard } from './Leaderboard';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 
 const COLORS = [
   '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',
@@ -45,6 +45,7 @@ const AuthForm = () => {
   const [color, setColor] = useState(COLORS[0]);
   const [icon, setIcon] = useState<IconName>('Swords');
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [isLoading, setIsLoading] = useState(false);
 
    useEffect(() => {
     setColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
@@ -52,9 +53,11 @@ const AuthForm = () => {
   }, []);
 
   const handleAuth = async () => {
+    setIsLoading(true);
     if (authMode === 'signup') {
       if (name.trim().length < 2) {
         toast({ title: 'Invalid Name', description: 'Name must be at least 2 characters.', variant: 'destructive' });
+        setIsLoading(false);
         return;
       }
       try {
@@ -81,6 +84,7 @@ const AuthForm = () => {
         toast({ title: 'Sign-in Failed', description: error.message, variant: 'destructive' });
       }
     }
+    setIsLoading(false);
   };
 
   return (
@@ -135,8 +139,11 @@ const AuthForm = () => {
         )}
       </CardContent>
       <CardFooter className="flex-col gap-4">
-        <Button onClick={handleAuth} className="w-full">{authMode === 'signin' ? 'Sign In' : 'Sign Up'}</Button>
-        <Button variant="link" onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}>
+        <Button onClick={handleAuth} className="w-full" disabled={isLoading}>
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {authMode === 'signin' ? 'Sign In' : 'Sign Up'}
+        </Button>
+        <Button variant="link" onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} disabled={isLoading}>
           {authMode === 'signin' ? 'Need an account? Sign Up' : 'Already have an account? Sign In'}
         </Button>
       </CardFooter>
@@ -149,6 +156,7 @@ export default function Lobby() {
   const { player, loading } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [isCreatingGame, setIsCreatingGame] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -181,15 +189,25 @@ export default function Lobby() {
 
   const handleCreateGame = async () => {
     if (player) {
+      setIsCreatingGame(true);
       await createGameAction(player);
+      // Redirect is handled by the server action
     }
   };
 
   const handleJoinGame = async (gameId: string) => {
     if (player) {
       try {
-        await joinGameAction(gameId, player);
-        router.push(`/game/${gameId}`);
+        const result = await joinGameAction(gameId, player);
+        if (result.success) {
+            router.push(`/game/${gameId}`);
+        } else {
+            toast({
+                title: "Failed to Join Game",
+                description: result.message,
+                variant: "destructive"
+            });
+        }
       } catch (error: any) {
         toast({
             title: "Failed to Join Game",
@@ -225,8 +243,9 @@ export default function Lobby() {
               <CardTitle className="font-headline text-2xl">Game Lobby</CardTitle>
               <CardDescription>Welcome, {player.name}! Join a game or create a new one.</CardDescription>
             </div>
-            <Button onClick={handleCreateGame}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Create Game
+            <Button onClick={handleCreateGame} disabled={isCreatingGame}>
+              {isCreatingGame ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+               Create Game
             </Button>
           </div>
         </CardHeader>

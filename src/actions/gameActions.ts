@@ -17,7 +17,7 @@ export async function createGameAction(player: Player): Promise<void> {
   redirect(`/game/${gameId}`);
 }
 
-export async function joinGameAction(gameId: string, player: Player): Promise<void> {
+export async function joinGameAction(gameId: string, player: Player): Promise<{success: boolean, message?: string}> {
     try {
         await runTransaction(db, async (transaction) => {
             const gameRef = doc(db, 'games', gameId);
@@ -29,6 +29,10 @@ export async function joinGameAction(gameId: string, player: Player): Promise<vo
             
             const game = gameDoc.data() as Game;
 
+            if (game.xPlayer.uid === player.uid) {
+                throw new Error("You cannot join your own game.");
+            }
+
             // Forfeit other games the player might be in
             await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
             
@@ -38,10 +42,10 @@ export async function joinGameAction(gameId: string, player: Player): Promise<vo
                 playerIds: [...game.playerIds, player.uid]
             });
         });
+        return { success: true };
     } catch (error: any) {
         console.error("Error joining game:", error);
-        // Let the client side handle the error message
-        throw error;
+        return { success: false, message: error.message };
     }
 }
 
@@ -98,7 +102,7 @@ export async function makeMoveAction(gameId: string, move: Move): Promise<{ succ
             const loserDoc = await transaction.get(loserRef);
             
             if (!winnerDoc.exists() || !loserDoc.exists()) {
-                throw "A player in the game does not exist!";
+                throw new Error("A player in the game does not exist!");
             }
             
             const winnerData = winnerDoc.data();
@@ -131,42 +135,50 @@ export async function getPlayersAction(): Promise<Player[]> {
 }
 
 export async function forfeitGameAction(gameId: string, playerId: string): Promise<void> {
-    const game = await db_firestore.games.find(gameId);
-    if (!game) return;
-
-    if (game.status === 'waiting') {
-        await db_firestore.games.delete(gameId);
-        return;
-    }
-
-    if (game.status === 'live' && game.oPlayer) {
+    try {
         await runTransaction(db, async (transaction) => {
-            const winner = game.xPlayer.uid === playerId ? game.oPlayer! : game.xPlayer;
-            const loser = game.xPlayer.uid === playerId ? game.xPlayer : game.oPlayer!;
+            const gameRef = doc(db, 'games', gameId);
+            const gameDoc = await transaction.get(gameRef);
 
-            const winnerRef = doc(db, 'players', winner.uid);
-            const loserRef = doc(db, 'players', loser.uid);
+            if (!gameDoc.exists()) return;
 
-            const [winnerDoc, loserDoc] = await Promise.all([
-                transaction.get(winnerRef),
-                transaction.get(loserRef)
-            ]);
+            const game = gameDoc.data() as Game;
 
-            if (!winnerDoc.exists() || !loserDoc.exists()) {
-                throw "A player in the game does not exist!";
+            if (game.status === 'finished') return;
+
+            if (game.status === 'waiting') {
+                transaction.delete(gameRef);
+                return;
             }
-            
-            const newWinnerData = { ...winnerDoc.data(), wins: (winnerDoc.data().wins || 0) + 1 };
-            const newLoserData = { ...loserDoc.data(), losses: (loserDoc.data().losses || 0) + 1 };
 
-            transaction.update(winnerRef, { wins: newWinnerData.wins });
-            transaction.update(loserRef, { losses: newLoserData.losses });
+            if (game.status === 'live' && game.oPlayer) {
+                const winner = game.xPlayer.uid === playerId ? game.oPlayer! : game.xPlayer;
+                const loser = game.xPlayer.uid === playerId ? game.xPlayer : game.oPlayer!;
 
-            const gameRef = doc(db, 'games', game.id);
-            transaction.update(gameRef, { 
-                status: 'finished',
-                winner: game.xPlayer.uid === winner.uid ? 'X' : 'O'
-            });
+                const winnerRef = doc(db, 'players', winner.uid);
+                const loserRef = doc(db, 'players', loser.uid);
+
+                const [winnerDoc, loserDoc] = await Promise.all([
+                    transaction.get(winnerRef),
+                    transaction.get(loserRef)
+                ]);
+
+                if (!winnerDoc.exists() || !loserDoc.exists()) {
+                    throw new Error("A player in the game does not exist!");
+                }
+                
+                const newWinnerData = { ...winnerDoc.data(), wins: (winnerDoc.data().wins || 0) + 1 };
+                const newLoserData = { ...loserDoc.data(), losses: (loserDoc.data().losses || 0) + 1 };
+
+                transaction.update(winnerRef, { wins: newWinnerData.wins });
+                transaction.update(loserRef, { losses: newLoserData.losses });
+                transaction.update(gameRef, { 
+                    status: 'finished',
+                    winner: game.xPlayer.uid === winner.uid ? 'X' : 'O'
+                });
+            }
         });
+    } catch (error) {
+        console.error("Failed to forfeit game:", error);
     }
 }
