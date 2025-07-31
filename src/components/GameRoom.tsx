@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/use-auth';
 export function GameRoom({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<Game | null>(null);
   const { player, loading: authLoading } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
   
   const router = useRouter();
   const { toast } = useToast();
@@ -50,6 +50,9 @@ export function GameRoom({ gameId }: { gameId: string }) {
         if (doc.exists()) {
             const newGame = doc.data() as Game;
             setGame((prevGame) => {
+                if (prevGame && prevGame.status === 'waiting' && newGame.status === 'live') {
+                    setIsJoining(false);
+                }
                 // Only show confetti if the winner has just been decided
                 if (prevGame && prevGame.winner !== newGame.winner && newGame.winner) {
                     const currentPlayerIsX = player?.uid === newGame.xPlayer.uid;
@@ -64,11 +67,9 @@ export function GameRoom({ gameId }: { gameId: string }) {
             toast({ title: "Game not found", variant: "destructive" });
             router.push('/');
         }
-        setIsLoading(false);
     }, (error) => {
         console.error("Failed to subscribe to game updates:", error);
         toast({ title: "Error fetching game", variant: "destructive" });
-        setIsLoading(false);
     });
 
     return () => {
@@ -79,8 +80,9 @@ export function GameRoom({ gameId }: { gameId: string }) {
   
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
+      setIsJoining(true);
       await joinGameAction(game.id, player);
-      router.push(`/game/${gameId}`);
+      // No need to router.push, the onSnapshot will update the state
     }
   };
 
@@ -119,18 +121,12 @@ export function GameRoom({ gameId }: { gameId: string }) {
   };
 
 
-  if (isLoading || authLoading || !player) {
+  if (authLoading || !game || !player) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
-  }
-
-  if (!game) {
-    return <div>Game not found. Going back to lobby...</div>;
   }
   
   const isPlayerX = player.uid === game.xPlayer.uid;
-  const isPlayerO = player.uid === game.oPlayer?.uid;
-  const isSpectator = !isPlayerX && !isPlayerO;
-
+  
   if (game.status === 'waiting') {
     if (isPlayerX) {
       return (
@@ -141,19 +137,24 @@ export function GameRoom({ gameId }: { gameId: string }) {
         </div>
       );
     }
-    // Spectator view of a waiting game
-    if (isSpectator) {
-       return (
-        <div className="flex flex-col items-center justify-center h-full gap-4">
-          <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
-          <Button onClick={handleJoinGame}>Join as Player O</Button>
-        </div>
-      );
+    
+    if (isJoining) {
+        return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
     }
-    // Player O has just joined, show loading until status updates to 'live'
-    return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
+
+    return (
+     <div className="flex flex-col items-center justify-center h-full gap-4">
+       <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
+       <Button onClick={handleJoinGame} disabled={isJoining}>
+        {isJoining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        Join as Player O
+       </Button>
+     </div>
+   );
   }
   
+  const isPlayerO = player.uid === game.oPlayer?.uid;
+  const isSpectator = !isPlayerX && !isPlayerO;
   const playerSymbol = isPlayerX ? 'X' : 'O';
   const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
 
