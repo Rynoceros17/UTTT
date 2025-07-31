@@ -27,8 +27,8 @@ export async function joinGameAction(gameId: string, player: Player): Promise<vo
     await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
 
     await db_firestore.games.save(game);
+    redirect(`/game/${gameId}`);
   }
-  redirect(`/game/${gameId}`);
 }
 
 export async function makeMoveAction(gameId: string, move: Move): Promise<{ success: boolean; message?: string }> {
