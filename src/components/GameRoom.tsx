@@ -126,8 +126,10 @@ export function GameRoom({ gameId }: { gameId: string }) {
   }
   
   const isPlayerX = player.uid === game.xPlayer.uid;
+  const isPlayerO = player.uid === game.oPlayer?.uid;
   
   if (game.status === 'waiting') {
+    // Player X is waiting for an opponent
     if (isPlayerX) {
       return (
         <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
@@ -138,22 +140,20 @@ export function GameRoom({ gameId }: { gameId: string }) {
       );
     }
     
-    if (isJoining) {
-        return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
+    // Another player (not X or O yet) is viewing the waiting game
+    if (!isPlayerO) {
+       return (
+         <div className="flex flex-col items-center justify-center h-full gap-4">
+           <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
+           <Button onClick={handleJoinGame} disabled={isJoining}>
+            {isJoining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Join as Player O
+           </Button>
+         </div>
+       );
     }
-
-    return (
-     <div className="flex flex-col items-center justify-center h-full gap-4">
-       <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
-       <Button onClick={handleJoinGame} disabled={isJoining}>
-        {isJoining ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        Join as Player O
-       </Button>
-     </div>
-   );
   }
   
-  const isPlayerO = player.uid === game.oPlayer?.uid;
   const isSpectator = !isPlayerX && !isPlayerO;
   const playerSymbol = isPlayerX ? 'X' : 'O';
   const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
