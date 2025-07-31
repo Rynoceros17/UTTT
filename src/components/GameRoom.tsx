@@ -93,21 +93,33 @@ export function GameRoom({ gameId }: { gameId: string }) {
   if (!game) {
     return <div>Game not found. Going back to lobby...</div>;
   }
-
-  const playerSymbol = player.uid === game.xPlayer.uid ? 'X' : 'O';
+  
+  const isPlayerX = player.uid === game.xPlayer.uid;
+  const playerSymbol = isPlayerX ? 'X' : 'O';
   const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
   const isSpectator = player.uid !== game.xPlayer.uid && player.uid !== game.oPlayer?.uid;
   const currentPlayerInGame = playerSymbol === 'X' ? game.xPlayer : game.oPlayer;
 
-  const isWaitingForYouToJoin = game.status === 'waiting' && player.uid !== game.xPlayer.uid && !game.oPlayer;
-  if (isWaitingForYouToJoin) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
-        <Button onClick={handleJoinGame}>Join as Player O</Button>
-      </div>
-    );
+  if (game.status === 'waiting') {
+    if (isPlayerX) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+          <h2 className="text-2xl font-headline">Waiting for an opponent to join...</h2>
+          <p className="text-muted-foreground">Share the game ID or have them find it in the lobby.</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+    } else {
+      // This is for the player who is joining
+       return (
+        <div className="flex flex-col items-center justify-center h-full gap-4">
+          <h2 className="text-2xl font-headline">{game.xPlayer.name} is waiting for an opponent.</h2>
+          <Button onClick={handleJoinGame}>Join as Player O</Button>
+        </div>
+      );
+    }
   }
+
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
