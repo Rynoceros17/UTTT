@@ -22,6 +22,17 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Effect to get the player from localStorage. Runs only once on mount.
+  useEffect(() => {
+    const storedPlayer = localStorage.getItem('ttt-player');
+    if (storedPlayer) {
+      setPlayer(JSON.parse(storedPlayer));
+    } else {
+      // If no player, redirect to lobby.
+      router.push('/');
+    }
+  }, [router]);
+
   const fetchGame = useCallback(async () => {
     try {
       const g = await getGameAction(gameId);
@@ -48,31 +59,27 @@ export function GameRoom({ gameId }: { gameId: string }) {
     }
   }, [gameId, router, toast, player]);
 
+  // Effect to set up game fetching interval and cleanup.
+  // Runs only when `fetchGame` or `player` changes.
   useEffect(() => {
-    const storedPlayer = localStorage.getItem('ttt-player');
-    if (storedPlayer) {
-      setPlayer(JSON.parse(storedPlayer));
-    } else {
-      router.push('/');
-      return;
-    }
+    if (!player) return;
 
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-        if (player && game && game.status === 'live') {
+    const handleBeforeUnload = () => {
+        if (game && game.status === 'live') {
           forfeitGameAction(game.id, player.id);
         }
     };
     
     window.addEventListener('beforeunload', handleBeforeUnload);
 
-    fetchGame();
-    const intervalId = setInterval(fetchGame, 2000);
+    fetchGame(); // Fetch immediately
+    const intervalId = setInterval(fetchGame, 2000); // Poll every 2 seconds
 
     return () => {
       clearInterval(intervalId);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [fetchGame, router, player, game]);
+  }, [player, fetchGame, game]);
   
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
