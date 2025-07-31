@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Swords, LogOut } from 'lucide-react';
 import { ProfileDialog } from './ProfileDialog';
 import { useState } from 'react';
-import { Button } from './ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { auth } from '@/lib/firebase';
 import {
@@ -41,6 +40,7 @@ export function Header() {
           {loading ? (
             <Skeleton className="h-10 w-28" />
           ) : user && player ? (
+            <>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-full p-1 pr-3 transition-colors hover:bg-muted">
@@ -59,18 +59,14 @@ export function Header() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
-            <Button onClick={() => setProfileOpen(true)}>
-              Sign In
-            </Button>
-          )}
+             <ProfileDialog
+                isOpen={isProfileOpen}
+                onOpenChange={setProfileOpen}
+              />
+            </>
+          ) : null }
         </div>
       </div>
-      <ProfileDialog
-        isOpen={isProfileOpen}
-        onOpenChange={setProfileOpen}
-        isEdit={!!player}
-      />
     </header>
   );
 }
