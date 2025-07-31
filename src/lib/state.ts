@@ -8,6 +8,13 @@ export const db = {
   games: {
     find: (id: string) => games.get(id),
     findAll: () => Array.from(games.values()),
+    findByPlayerId: (playerId: string) => {
+      return Array.from(games.values()).filter(
+        (game) =>
+          (game.xPlayer && game.xPlayer.id === playerId) ||
+          (game.oPlayer && game.oPlayer.id === playerId)
+      );
+    },
     save: (game: Game) => games.set(game.id, game),
     delete: (id: string) => games.delete(id),
   },

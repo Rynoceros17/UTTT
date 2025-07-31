@@ -7,7 +7,31 @@ import { createNewGame, applyMove } from '@/lib/gameLogic';
 import type { Player, Game, Move, PlayerSymbol } from '@/types';
 import { autoForfeitOnDisconnect } from '@/ai/flows/auto-forfeit-on-disconnect';
 
+async function forfeitPlayerFromAllGames(player: Player) {
+  const gamesToForfeit = db.games.findByPlayerId(player.id);
+  for (const game of gamesToForfeit) {
+    if (game.status === 'live' || game.status === 'waiting') {
+      // If it's a waiting game, just delete it.
+      if (game.status === 'waiting' && game.xPlayer.id === player.id) {
+        db.games.delete(game.id);
+      } else if (game.status === 'live') {
+        // If it's a live game, forfeit.
+        const opponent = game.xPlayer.id === player.id ? game.oPlayer : game.xPlayer;
+        if (opponent) {
+            game.status = 'finished';
+            game.winner = opponent.id === game.xPlayer.id ? 'X' : 'O';
+            db.games.save(game);
+        } else {
+            // No opponent, just end the game.
+            db.games.delete(game.id);
+        }
+      }
+    }
+  }
+}
+
 export async function createGameAction(player: Player): Promise<string> {
+  await forfeitPlayerFromAllGames(player);
   const gameId = Math.random().toString(36).substring(2, 9);
   const game = createNewGame(gameId, player);
   db.games.save(game);
@@ -16,6 +40,7 @@ export async function createGameAction(player: Player): Promise<string> {
 }
 
 export async function joinGameAction(gameId: string, player: Player): Promise<void> {
+  await forfeitPlayerFromAllGames(player);
   const game = db.games.find(gameId);
   if (game && game.status === 'waiting' && game.xPlayer.id !== player.id) {
     game.oPlayer = player;
@@ -80,7 +105,13 @@ export async function forfeitGameAction(gameId: string, forfeitingPlayerId: stri
 
     const opponent = game.xPlayer.id === forfeitingPlayerId ? game.oPlayer : game.xPlayer;
     if (!opponent) {
-        throw new Error('Opponent not found');
+        // If no opponent, just delete the game.
+        db.games.delete(game.id);
+        revalidatePath('/');
+        return {
+            summary: "The game was cancelled as the opponent left before it started.",
+            message: "The opponent left the game."
+        }
     }
 
     game.status = 'finished';
