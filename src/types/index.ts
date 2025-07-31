@@ -24,7 +24,7 @@ export type Game = {
   status: 'waiting' | 'live' | 'finished';
   nextTurn: PlayerSymbol;
   globalBoard: BoardState[];
-  localBoards: CellState[][];
+  localBoards: CellState[]; // Changed from CellState[][] to CellState[]
   lastMove?: Move;
   winner?: PlayerSymbol | 'D';
   winningLine?: number[];

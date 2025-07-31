@@ -35,7 +35,7 @@ export function createNewGame(gameId: string, player: Player): Game {
     status: 'waiting',
     nextTurn: 'X',
     globalBoard: Array(9).fill(null),
-    localBoards: Array(9).fill(null).map(() => Array(9).fill(null)),
+    localBoards: Array(81).fill(null), // 9 * 9 = 81 cells
     activeLocalBoard: null,
     createdAt: Date.now(),
   };
@@ -45,10 +45,14 @@ export function applyMove(game: Game, move: Move): Game {
   const newGame = JSON.parse(JSON.stringify(game));
   const { localBoardIndex, cellIndex, player } = move;
 
-  newGame.localBoards[localBoardIndex][cellIndex] = player;
+  const flatIndex = localBoardIndex * 9 + cellIndex;
+  newGame.localBoards[flatIndex] = player;
   newGame.lastMove = move;
+  
+  const localBoardStartIndex = localBoardIndex * 9;
+  const localBoard = newGame.localBoards.slice(localBoardStartIndex, localBoardStartIndex + 9);
 
-  const localWinnerCheck = checkWinner(newGame.localBoards[localBoardIndex]);
+  const localWinnerCheck = checkWinner(localBoard);
   if (localWinnerCheck.winner) {
     newGame.globalBoard[localBoardIndex] = localWinnerCheck.winner;
     

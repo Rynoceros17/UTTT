@@ -20,19 +20,22 @@ export default function GameBoard({ game, playerSymbol, isPlayerTurn, isSpectato
   return (
     <div className="relative aspect-square">
       <div className="grid grid-cols-3 grid-rows-3 gap-1 md:gap-2 bg-muted/60 p-1 md:p-2 rounded-lg shadow-inner w-full h-full">
-        {localBoards.map((cells, i) => (
-          <LocalBoard
-            key={i}
-            localBoardIndex={i}
-            cells={cells}
-            winner={globalBoard[i]}
-            isActive={activeLocalBoard === i || (activeLocalBoard === null && globalBoard[i] === null)}
-            isClickable={isPlayerTurn && !isSpectator}
-            playerSymbol={playerSymbol}
-            gameId={game.id}
-            currentPlayer={currentPlayer}
-          />
-        ))}
+        {Array.from({ length: 9 }).map((_, i) => {
+          const localBoardCells = localBoards.slice(i * 9, i * 9 + 9);
+          return (
+            <LocalBoard
+              key={i}
+              localBoardIndex={i}
+              cells={localBoardCells}
+              winner={globalBoard[i]}
+              isActive={activeLocalBoard === i || (activeLocalBoard === null && globalBoard[i] === null)}
+              isClickable={isPlayerTurn && !isSpectator}
+              playerSymbol={playerSymbol}
+              gameId={game.id}
+              currentPlayer={currentPlayer}
+            />
+          );
+        })}
       </div>
       {globalWinningLine && (
         <svg className="absolute top-0 left-0 w-full h-full pointer-events-none" viewBox="0 0 100 100">
