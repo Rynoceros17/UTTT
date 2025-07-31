@@ -29,13 +29,13 @@ export function isBoardFull(board: CellState[]): boolean {
 export function createNewGame(gameId: string, player: Player): Game {
   return {
     id: gameId,
-    playerIds: [player.id],
+    playerIds: [player.uid],
     xPlayer: player,
     oPlayer: null,
     status: 'waiting',
     nextTurn: 'X',
     globalBoard: Array(9).fill(null),
-    localBoards: Array(81).fill(null), // 9 * 9 = 81 cells
+    localBoards: Array(81).fill(null),
     activeLocalBoard: null,
     createdAt: Date.now(),
   };

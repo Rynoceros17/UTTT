@@ -16,112 +16,221 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { auth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { db_firestore } from '@/lib/state';
+import { useAuth } from '@/hooks/use-auth';
+import { Camera, CircleUser, Crown, Shield, Swords } from 'lucide-react';
 
 const COLORS = [
-  '#ef4444', // red-500
-  '#f97316', // orange-500
-  '#eab308', // yellow-500
-  '#84cc16', // lime-500
-  '#22c55e', // green-500
-  '#14b8a6', // teal-500
-  '#06b6d4', // cyan-500
-  '#3b82f6', // blue-500
-  '#8b5cf6', // violet-500
-  '#d946ef', // fuchsia-500
-  '#ec4899', // pink-500
+  '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',
+  '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#ec4899',
 ];
+
+const ICONS = {
+  Swords: <Swords />,
+  Crown: <Crown />,
+  Shield: <Shield />,
+  Camera: <Camera />,
+  CircleUser: <CircleUser />,
+};
+
+type IconName = keyof typeof ICONS;
 
 interface ProfileDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onSave: (player: Player) => void;
-  currentPlayer: Player | null;
+  isEdit?: boolean;
 }
 
-export function ProfileDialog({ isOpen, onOpenChange, onSave, currentPlayer }: ProfileDialogProps) {
-  const [name, setName] = useState('');
-  const [color, setColor] = useState(COLORS[0]);
-  const [icon, setIcon] = useState('User'); // Default icon
+export function ProfileDialog({ isOpen, onOpenChange, isEdit = false }: ProfileDialogProps) {
+  const { player, setPlayer, user } = useAuth();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (currentPlayer) {
-      setName(currentPlayer.name);
-      setColor(currentPlayer.color);
-      setIcon(currentPlayer.icon);
-    } else {
-      // Set defaults for new players
-      setName('');
-      setColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
-      setIcon('User');
-    }
-  }, [currentPlayer, isOpen]);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(COLORS[0]);
+  const [icon, setIcon] = useState<IconName>('Swords');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (isOpen) {
+      if (isEdit && player) {
+        setName(player.name);
+        setColor(player.color);
+        setIcon(player.icon as IconName);
+      } else {
+        setName('');
+        setColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
+        setIcon('Swords');
+        setEmail('');
+        setPassword('');
+        setAuthMode('signin');
+      }
+    }
+  }, [isOpen, isEdit, player]);
+
+  const handleAuth = async () => {
+    if (authMode === 'signup') {
+      if (name.trim().length < 2) {
+        toast({ title: 'Invalid Name', description: 'Name must be at least 2 characters.', variant: 'destructive' });
+        return;
+      }
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newPlayer: Player = {
+          uid: userCredential.user.uid,
+          name: name.trim(),
+          icon,
+          color,
+        };
+        await db_firestore.players.save(newPlayer);
+        setPlayer(newPlayer);
+        onOpenChange(false);
+        toast({ title: `Welcome, ${newPlayer.name}!` });
+      } catch (error: any) {
+        toast({ title: 'Sign-up Failed', description: error.message, variant: 'destructive' });
+      }
+    } else { // signin
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        onOpenChange(false);
+        toast({ title: 'Signed in successfully!' });
+      } catch (error: any) {
+        toast({ title: 'Sign-in Failed', description: error.message, variant: 'destructive' });
+      }
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    if (!user || !player) return;
     if (name.trim().length < 2) {
-      toast({
-        title: 'Invalid Name',
-        description: 'Your name must be at least 2 characters long.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Invalid Name', description: 'Name must be at least 2 characters.', variant: 'destructive' });
       return;
     }
-
-    const newPlayer: Player = {
-      id: currentPlayer?.id || Math.random().toString(36).substring(2, 9),
+    const updatedPlayer: Player = {
+      ...player,
       name: name.trim(),
       icon,
       color,
     };
-    
-    localStorage.setItem('ttt-player', JSON.stringify(newPlayer));
-    // Dispatch a storage event to notify other components like the Header
-    window.dispatchEvent(new Event('storage'));
-    
-    onSave(newPlayer);
-    toast({ title: `Profile saved! Welcome, ${newPlayer.name}.` });
+    await db_firestore.players.save(updatedPlayer);
+    setPlayer(updatedPlayer);
+    onOpenChange(false);
+    toast({ title: 'Profile updated!' });
   };
+
+  const renderAuthForm = () => (
+    <>
+      <DialogHeader>
+        <DialogTitle>{authMode === 'signin' ? 'Sign In' : 'Create an Account'}</DialogTitle>
+        <DialogDescription>
+          {authMode === 'signin' ? 'Enter your credentials to sign in.' : 'Fill out the form to create your profile.'}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
+        {authMode === 'signup' && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="name">Display Name</Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your display name" />
+            </div>
+            <div className="space-y-2">
+              <Label>Icon</Label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(ICONS).map(([name, IconComponent]) => (
+                  <button
+                    key={name}
+                    className={cn(
+                      'h-10 w-10 rounded-md border-2 flex items-center justify-center transition-transform hover:scale-110',
+                      icon === name ? 'border-ring bg-accent' : 'border-transparent bg-muted'
+                    )}
+                    onClick={() => setIcon(name as IconName)}
+                  >
+                    {React.cloneElement(IconComponent, { className: "w-6 h-6" })}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {COLORS.map((c) => (
+                  <button key={c} className={cn('h-8 w-8 rounded-full border-2 transition-transform hover:scale-110', color === c ? 'border-ring' : 'border-transparent')} style={{ backgroundColor: c }} onClick={() => setColor(c)} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+      <DialogFooter className="sm:justify-between">
+        <Button variant="ghost" onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}>
+          {authMode === 'signin' ? 'Need an account?' : 'Already have an account?'}
+        </Button>
+        <Button onClick={handleAuth}>{authMode === 'signin' ? 'Sign In' : 'Sign Up'}</Button>
+      </DialogFooter>
+    </>
+  );
+
+  const renderEditProfileForm = () => (
+    <>
+      <DialogHeader>
+        <DialogTitle>Edit Profile</DialogTitle>
+        <DialogDescription>
+          Update your display name, icon, and color.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Display Name</Label>
+          <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your display name" />
+        </div>
+        <div className="space-y-2">
+          <Label>Icon</Label>
+           <div className="flex flex-wrap gap-2">
+              {Object.entries(ICONS).map(([name, IconComponent]) => (
+                <button
+                  key={name}
+                  className={cn(
+                    'h-10 w-10 rounded-md border-2 flex items-center justify-center transition-transform hover:scale-110',
+                    icon === name ? 'border-ring bg-accent' : 'border-transparent bg-muted'
+                  )}
+                  onClick={() => setIcon(name as IconName)}
+                >
+                  {React.cloneElement(IconComponent, { className: "w-6 h-6" })}
+                </button>
+              ))}
+            </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Color</Label>
+          <div className="flex flex-wrap gap-2">
+            {COLORS.map((c) => (
+              <button key={c} className={cn('h-8 w-8 rounded-full border-2 transition-transform hover:scale-110', color === c ? 'border-ring' : 'border-transparent')} style={{ backgroundColor: c }} onClick={() => setColor(c)} />
+            ))}
+          </div>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+        <Button onClick={handleProfileUpdate}>Save Changes</Button>
+      </DialogFooter>
+    </>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{currentPlayer ? 'Edit Profile' : 'Create Your Profile'}</DialogTitle>
-          <DialogDescription>
-            Choose your name, color, and icon to be displayed in the game.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your display name"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Color</Label>
-            <div className="flex flex-wrap gap-2">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  className={cn(
-                    'h-8 w-8 rounded-full border-2 transition-transform hover:scale-110',
-                    color === c ? 'border-ring' : 'border-transparent'
-                  )}
-                  style={{ backgroundColor: c }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-            </div>
-          </div>
-          {/* Icon selection can be added here in the future */}
-        </div>
-        <DialogFooter>
-          <Button onClick={handleSave}>Save Profile</Button>
-        </DialogFooter>
+        {isEdit ? renderEditProfileForm() : renderAuthForm()}
       </DialogContent>
     </Dialog>
   );

@@ -1,10 +1,12 @@
 
+import type { User } from 'firebase/auth';
+
 export type PlayerSymbol = 'X' | 'O';
 export type CellState = PlayerSymbol | null;
 export type BoardState = PlayerSymbol | 'D' | null;
 
 export type Player = {
-  id: string;
+  uid: string;
   name: string;
   icon: string;
   color: string;
@@ -32,3 +34,10 @@ export type Game = {
   winningLine?: number[];
   activeLocalBoard: number | null;
 };
+
+export interface AuthContextType {
+  user: User | null;
+  player: Player | null;
+  loading: boolean;
+  setPlayer: React.Dispatch<React.SetStateAction<Player | null>>;
+}

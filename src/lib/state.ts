@@ -1,20 +1,17 @@
+
 import { collection, doc, getDoc, setDoc, deleteDoc, getDocs, query, where, writeBatch } from "firebase/firestore";
 import type { Game, Player } from '@/types';
 import { db } from './firebase'; // Import the Firestore instance
 
 const gamesCollection = collection(db, 'games');
+const playersCollection = collection(db, 'players');
 
-// This is a simple in-memory implementation.
-// In a production environment, you'd replace this with a real-time database
-// like Firestore for game state and a presence solution.
 export const db_firestore = {
   games: {
     find: async (id: string): Promise<Game | undefined> => {
         const docRef = doc(db, 'games', id);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-            // Firestore returns a DocumentData, we need to cast it to Game
-            // We should add a converter for more safety in a real app
             return docSnap.data() as Game;
         }
         return undefined;
@@ -25,13 +22,13 @@ export const db_firestore = {
     },
     save: async (game: Game): Promise<Game> => {
         const docRef = doc(db, 'games', game.id);
-        await setDoc(docRef, game, { merge: true }); // Use merge to avoid overwriting on partial updates
+        await setDoc(docRef, game, { merge: true });
         return game;
     },
     delete: async (id: string): Promise<boolean> => {
         const docRef = doc(db, 'games', id);
         await deleteDoc(docRef);
-        return true; // Assume success if no error is thrown
+        return true;
     },
     findPlayerGames: async (playerId: string): Promise<Game[]> => {
         const q = query(collection(db, "games"), where("status", "==", "live"), where("playerIds", "array-contains", playerId));
@@ -44,9 +41,9 @@ export const db_firestore = {
 
         for (const game of gamesToForfeit) {
             if (game.id !== currentGameId) {
-                const opponent = game.xPlayer.id === playerId ? game.oPlayer : game.xPlayer;
+                const opponent = game.xPlayer.uid === playerId ? game.oPlayer : game.xPlayer;
                 if(opponent) {
-                    game.winner = game.xPlayer.id === opponent.id ? 'O' : 'X';
+                    game.winner = game.xPlayer.uid === opponent.uid ? 'O' : 'X';
                 }
                 game.status = 'finished';
                 const gameRef = doc(db, 'games', game.id);
@@ -57,10 +54,18 @@ export const db_firestore = {
     }
   },
   players: {
-    // Player logic would go here, e.g., storing player profiles.
-    // For now, player data is embedded in the game documents.
-    find: (id: string) => { throw new Error("Not implemented")},
-    findAll: () => { throw new Error("Not implemented")},
-    save: (player: Player) => { throw new Error("Not implemented")},
+    find: async (uid: string): Promise<Player | undefined> => {
+        const docRef = doc(db, 'players', uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as Player;
+        }
+        return undefined;
+    },
+    save: async (player: Player): Promise<Player> => {
+        const docRef = doc(db, 'players', player.uid);
+        await setDoc(docRef, player, { merge: true });
+        return player;
+    },
   },
 };

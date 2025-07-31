@@ -4,41 +4,24 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createGameAction, getGamesAction, joinGameAction } from '@/actions/gameActions';
-import type { Player, Game } from '@/types';
+import type { Game } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function Lobby() {
-  const [player, setPlayer] = useState<Player | null>(null);
+  const { player, loading } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
-    const storedPlayer = localStorage.getItem('ttt-player');
-    if (storedPlayer) {
-      setPlayer(JSON.parse(storedPlayer));
-    }
-
-    const handleStorageChange = () => {
-      const updatedPlayer = localStorage.getItem('ttt-player');
-      if (updatedPlayer) {
-        setPlayer(JSON.parse(updatedPlayer));
-      } else {
-        setPlayer(null);
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    
     fetchGames();
     const interval = setInterval(fetchGames, 5000);
     
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    return () => clearInterval(interval);
   }, []);
 
   const fetchGames = async () => {
@@ -55,7 +38,7 @@ export default function Lobby() {
     if (player) {
       await createGameAction(player);
     } else {
-      toast({ title: "Please set your profile first.", variant: "destructive" });
+      toast({ title: "Please sign in and set your profile first.", variant: "destructive" });
     }
   };
 
@@ -63,7 +46,7 @@ export default function Lobby() {
     if (player) {
       await joinGameAction(gameId, player);
     } else {
-      toast({ title: "Please set your profile first.", variant: "destructive" });
+      toast({ title: "Please sign in and set your profile first.", variant: "destructive" });
     }
   };
 
@@ -71,12 +54,20 @@ export default function Lobby() {
     router.push(`/game/${gameId}`);
   };
 
+  if (loading) {
+    return (
+        <div className="flex justify-center items-center h-full">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+    )
+  }
+
   if (!player) {
     return (
       <Card className="max-w-md mx-auto mt-10 shadow-lg text-center">
         <CardHeader>
           <CardTitle className="font-headline text-2xl">Welcome to the Arena!</CardTitle>
-          <CardDescription>Set your profile in the top-right corner to begin.</CardDescription>
+          <CardDescription>Please sign in to create or join a game.</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -107,7 +98,7 @@ export default function Lobby() {
                       <p className="font-semibold">{game.xPlayer.name}'s Game</p>
                       <p className="text-sm text-muted-foreground">Waiting for opponent</p>
                     </div>
-                    <Button onClick={() => handleJoinGame(game.id)} variant="secondary">
+                    <Button onClick={() => handleJoinGame(game.id)} variant="secondary" disabled={game.xPlayer.uid === player.uid}>
                       Join
                     </Button>
                   </CardContent>

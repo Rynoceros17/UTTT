@@ -5,6 +5,7 @@ import { XIcon } from './icons/XIcon';
 import { OIcon } from './icons/OIcon';
 import { cn } from '@/lib/utils';
 import { User, Crown } from 'lucide-react';
+import { PlayerAvatar } from './PlayerAvatar';
 
 interface PlayerInfoProps {
   game: Game;
@@ -13,14 +14,14 @@ interface PlayerInfoProps {
 
 export default function PlayerInfo({ game, currentPlayerId }: PlayerInfoProps) {
   const { xPlayer, oPlayer, nextTurn, winner, status } = game;
-  const isXPlayer = currentPlayerId === xPlayer.id;
-  const isOPlayer = currentPlayerId === oPlayer?.id;
+  const isXPlayer = currentPlayerId === xPlayer.uid;
+  const isOPlayer = currentPlayerId === oPlayer?.uid;
   
   const PlayerCard = ({ player, symbol, isTurn, isWinner, isYou }: { player: Player, symbol: 'X' | 'O', isTurn: boolean, isWinner: boolean, isYou: boolean }) => (
     <Card className={cn("transition-all", isTurn && status === 'live' ? 'ring-2 ring-accent shadow-lg' : 'shadow-sm')}>
       <CardContent className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {symbol === 'X' ? <XIcon className="w-8 h-8 text-primary" /> : <OIcon className="w-8 h-8 text-accent" />}
+            <PlayerAvatar player={player} className="w-10 h-10" />
           <div>
             <p className="font-semibold font-headline">{player.name}</p>
             <p className="text-sm text-muted-foreground">

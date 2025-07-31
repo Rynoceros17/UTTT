@@ -10,7 +10,7 @@ export async function createGameAction(player: Player): Promise<void> {
   const gameId = Math.random().toString(36).substring(2, 9);
   const game = createNewGame(gameId, player);
   
-  await db_firestore.games.forfeitPlayerGames(player.id, game.id);
+  await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
   await db_firestore.games.save(game);
   redirect(`/game/${gameId}`);
 }
@@ -20,9 +20,9 @@ export async function joinGameAction(gameId: string, player: Player): Promise<vo
   if (game && game.status === 'waiting') {
     game.oPlayer = player;
     game.status = 'live';
-    game.playerIds.push(player.id);
+    game.playerIds.push(player.uid);
     
-    await db_firestore.games.forfeitPlayerGames(player.id, game.id);
+    await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
 
     await db_firestore.games.save(game);
   }
@@ -84,9 +84,9 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
     }
 
     if (game.status === 'live') {
-        const opponent = game.xPlayer.id === playerId ? game.oPlayer : game.xPlayer;
+        const opponent = game.xPlayer.uid === playerId ? game.oPlayer : game.xPlayer;
         if(opponent) {
-            game.winner = game.xPlayer.id === opponent.id ? 'O' : 'X';
+            game.winner = game.xPlayer.uid === opponent.uid ? 'O' : 'X';
         }
         game.status = 'finished';
         await db_firestore.games.save(game);
