@@ -35,8 +35,7 @@ export function ChatBox({ gameId, messages }: ChatBoxProps) {
   }, [messages]);
 
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendMessage = async () => {
     if (newMessage.trim() === '' || !player) return;
 
     await sendChatMessageAction(gameId, {
@@ -46,6 +45,18 @@ export function ChatBox({ gameId, messages }: ChatBoxProps) {
     });
 
     setNewMessage('');
+  };
+  
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSendMessage();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage();
+    }
   };
 
   return (
@@ -71,10 +82,8 @@ export function ChatBox({ gameId, messages }: ChatBoxProps) {
                        msg.senderId === player?.uid ? 'bg-primary text-primary-foreground' : 'bg-muted'
                     )}
                   >
+                    <p className="text-sm font-semibold mb-1">{msg.senderName}</p>
                     <p className="text-sm">{msg.text}</p>
-                  </div>
-                  <div className={cn("text-xs text-muted-foreground px-1", msg.senderId === player?.uid ? 'text-right' : 'text-left')}>
-                    {msg.senderName}, {formatDistanceToNow(new Date(msg.timestamp), { addSuffix: true })}
                   </div>
                 </div>
               </div>
@@ -84,10 +93,11 @@ export function ChatBox({ gameId, messages }: ChatBoxProps) {
             )}
           </div>
         </ScrollArea>
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2 pt-2 border-t">
+        <form onSubmit={handleFormSubmit} className="flex items-center gap-2 pt-2 border-t">
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             autoComplete="off"
           />
