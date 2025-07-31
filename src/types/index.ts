@@ -21,6 +21,13 @@ export type Move = {
   cellIndex: number;
 };
 
+export type ChatMessage = {
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: number;
+};
+
 export type Game = {
   id:string;
   createdAt: number;
@@ -35,6 +42,7 @@ export type Game = {
   winner?: PlayerSymbol | 'D';
   winningLine?: number[];
   activeLocalBoard: number | null;
+  chat?: ChatMessage[];
 };
 
 export interface AuthContextType {

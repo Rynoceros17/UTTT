@@ -17,6 +17,7 @@ import confetti from 'canvas-confetti';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
+import { ChatBox } from './ChatBox';
 
 export function GameRoom({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<Game | null>(null);
@@ -186,7 +187,24 @@ export function GameRoom({ gameId }: { gameId: string }) {
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
-      <PlayerInfo game={game} currentPlayerId={player?.uid} />
+      <div className="w-full lg:w-64 flex-shrink-0 space-y-4">
+        <PlayerInfo game={game} currentPlayerId={player?.uid} />
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            <h3 className="font-headline text-lg">Game Info</h3>
+            <p><strong>Status:</strong> <span className="capitalize">{game.status}</span></p>
+            <p><strong>Game ID:</strong> {game.id}</p>
+            {game.status === 'live' && !isSpectator && (
+                <Button variant="destructive" className="w-full" onClick={handleForfeit}>Forfeit Game</Button>
+            )}
+             {game.status === 'finished' && (
+              <Button onClick={() => router.push('/')} className="w-full">
+                Back to Lobby
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
       
       <div className="flex-grow w-full max-w-2xl mx-auto">
         <Card className="shadow-xl">
@@ -203,22 +221,8 @@ export function GameRoom({ gameId }: { gameId: string }) {
         <GameStatus game={game} playerSymbol={playerSymbol} />
       </div>
 
-      <div className="w-full lg:w-64 flex-shrink-0">
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <h3 className="font-headline text-lg">Game Info</h3>
-            <p><strong>Status:</strong> <span className="capitalize">{game.status}</span></p>
-            <p><strong>Game ID:</strong> {game.id}</p>
-            {game.status === 'live' && !isSpectator && (
-                <Button variant="destructive" className="w-full" onClick={handleForfeit}>Forfeit Game</Button>
-            )}
-             {game.status === 'finished' && (
-              <Button onClick={() => router.push('/')} className="w-full">
-                Back to Lobby
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+      <div className="w-full lg:w-80 flex-shrink-0">
+        <ChatBox gameId={game.id} messages={game.chat || []} />
       </div>
     </div>
   );

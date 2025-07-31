@@ -4,8 +4,8 @@
 import { redirect } from 'next/navigation';
 import { db_firestore } from '@/lib/state';
 import { createNewGame, applyMove } from '@/lib/gameLogic';
-import type { Player, Game, Move } from '@/types';
-import { runTransaction, doc, getDoc } from 'firebase/firestore';
+import type { Player, Game, Move, ChatMessage } from '@/types';
+import { runTransaction, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export async function createGameAction(player: Player): Promise<void> {
@@ -122,6 +122,23 @@ export async function makeMoveAction(gameId: string, move: Move): Promise<{ succ
     console.error("Error making move:", error);
     return { success: false, message: error.message };
   }
+}
+
+export async function sendChatMessageAction(gameId: string, message: Omit<ChatMessage, 'timestamp'>): Promise<{success: boolean}> {
+    try {
+        const gameRef = doc(db, 'games', gameId);
+        const newMessage: ChatMessage = {
+            ...message,
+            timestamp: Date.now()
+        };
+        await updateDoc(gameRef, {
+            chat: arrayUnion(newMessage)
+        });
+        return { success: true };
+    } catch (error) {
+        console.error("Error sending chat message:", error);
+        return { success: false };
+    }
 }
 
 export async function getGameAction(gameId: string): Promise<Game | undefined> {
