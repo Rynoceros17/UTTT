@@ -30,6 +30,8 @@ export async function joinGameAction(gameId: string, player: Player): Promise<{s
             const game = gameDoc.data() as Game;
 
             if (game.xPlayer.uid === player.uid) {
+                // This case should be handled by client-side logic disabling the button,
+                // but we add a server-side check for robustness.
                 throw new Error("You cannot join your own game.");
             }
 
@@ -147,6 +149,7 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
             if (game.status === 'finished') return;
 
             if (game.status === 'waiting') {
+                // If a player is waiting and forfeits, just delete the game
                 transaction.delete(gameRef);
                 return;
             }
@@ -164,7 +167,12 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
                 ]);
 
                 if (!winnerDoc.exists() || !loserDoc.exists()) {
-                    throw new Error("A player in the game does not exist!");
+                    // One of the players doesn't exist, can't update stats, so just end the game.
+                     transaction.update(gameRef, { 
+                        status: 'finished',
+                        winner: game.xPlayer.uid === winner.uid ? 'X' : 'O'
+                    });
+                    return;
                 }
                 
                 const newWinnerData = { ...winnerDoc.data(), wins: (winnerDoc.data().wins || 0) + 1 };
@@ -180,5 +188,7 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
         });
     } catch (error) {
         console.error("Failed to forfeit game:", error);
+        // We don't throw here to prevent crashing the client on an unhandled promise rejection,
+        // as this action can be fire-and-forget.
     }
 }
