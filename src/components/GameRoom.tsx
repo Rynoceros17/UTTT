@@ -81,14 +81,20 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
       setIsJoining(true);
-      await joinGameAction(game.id, player);
-      // No need to router.push, the onSnapshot will update the state
+      try {
+        await joinGameAction(game.id, player);
+        // Navigation is handled by the real-time listener updating the state
+      } catch (error: any) {
+         toast({ title: "Failed to join game", description: error.message, variant: "destructive" });
+         setIsJoining(false);
+      }
     }
   };
 
   const handleForfeit = async () => {
     if (!player || !game) return;
     await forfeitGameAction(game.id, player.uid);
+    router.push('/');
   };
 
   const handleMakeMove = async (localBoardIndex: number, cellIndex: number) => {
@@ -96,10 +102,20 @@ export function GameRoom({ gameId }: { gameId: string }) {
 
     const isPlayerX = player.uid === game.xPlayer.uid;
     const playerSymbol = isPlayerX ? 'X' : 'O';
-    const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
     const isSpectator = !isPlayerX && !(player.uid === game.oPlayer?.uid);
 
-    if (!isPlayerTurn || isSpectator) return;
+    // Client-side validation
+    if (game.status !== 'live' || isSpectator || game.nextTurn !== playerSymbol) {
+        return;
+    }
+    if (game.activeLocalBoard !== null && game.activeLocalBoard !== localBoardIndex) {
+        toast({ title: "Invalid Move", description: "You must play in the highlighted board.", variant: "destructive" });
+        return;
+    }
+    const flatIndex = localBoardIndex * 9 + cellIndex;
+    if (game.localBoards[flatIndex] !== null) {
+        return; // Clicked on an already taken cell
+    }
     
     // Optimistic UI update
     const previousGame = game;
@@ -107,17 +123,21 @@ export function GameRoom({ gameId }: { gameId: string }) {
     const optimisticGame = applyMove(game, move);
     setGame(optimisticGame);
 
+    // Send move to server
     const result = await makeMoveAction(game.id, move);
 
     if (!result.success) {
-      setGame(previousGame); // Revert on error
+      // Revert on error
+      setGame(previousGame); 
       toast({
         title: "Invalid Move",
         description: result.message,
         variant: "destructive",
       });
     }
-    // On success, we don't need to do anything, the onSnapshot listener will handle the update
+    // On success, we don't need to do anything.
+    // The onSnapshot listener will receive the update from the server,
+    // which will match our optimistic state.
   };
 
 
@@ -135,6 +155,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
         <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
           <h2 className="text-2xl font-headline">Waiting for an opponent to join...</h2>
           <p className="text-muted-foreground">Share the game ID or have them find it in the lobby.</p>
+          <p className="font-bold text-lg p-2 bg-muted rounded-md tracking-widest">{game.id}</p>
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       );
@@ -155,7 +176,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
   }
   
   const isSpectator = !isPlayerX && !isPlayerO;
-  const playerSymbol = isPlayerX ? 'X' : 'O';
+  const playerSymbol = isPlayerX ? 'X' : (isPlayerO ? 'O' : 'X');
   const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
 
   return (

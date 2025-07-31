@@ -18,7 +18,7 @@ import { auth, db } from '@/lib/firebase';
 import { db_firestore } from '@/lib/state';
 import * as React from 'react';
 import { Leaderboard } from './Leaderboard';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
 const COLORS = [
   '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',

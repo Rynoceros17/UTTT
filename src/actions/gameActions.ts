@@ -18,15 +18,30 @@ export async function createGameAction(player: Player): Promise<void> {
 }
 
 export async function joinGameAction(gameId: string, player: Player): Promise<void> {
-    const game = await db_firestore.games.find(gameId);
-    if (game && game.status === 'waiting') {
-        game.oPlayer = player;
-        game.status = 'live';
-        game.playerIds.push(player.uid);
-        
-        await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const gameRef = doc(db, 'games', gameId);
+            const gameDoc = await transaction.get(gameRef);
 
-        await db_firestore.games.save(game);
+            if (!gameDoc.exists() || gameDoc.data().status !== 'waiting') {
+                throw new Error("Game not available to join.");
+            }
+            
+            const game = gameDoc.data() as Game;
+
+            // Forfeit other games the player might be in
+            await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
+            
+            transaction.update(gameRef, {
+                oPlayer: player,
+                status: 'live',
+                playerIds: [...game.playerIds, player.uid]
+            });
+        });
+    } catch (error: any) {
+        console.error("Error joining game:", error);
+        // Let the client side handle the error message
+        throw error;
     }
 }
 
