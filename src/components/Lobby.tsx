@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createGameAction, getGamesAction, joinGameAction, getPlayersAction } from '@/actions/gameActions';
+import { createGameAction, joinGameAction } from '@/actions/gameActions';
 import type { Player, Game } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import { auth, db } from '@/lib/firebase';
 import { db_firestore } from '@/lib/state';
 import * as React from 'react';
 import { Leaderboard } from './Leaderboard';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 
 const COLORS = [
   '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',
@@ -153,21 +154,29 @@ export default function Lobby() {
 
   useEffect(() => {
     if (!player) return;
-    const fetchLobbyData = () => {
-        getGamesAction().then(setGames).catch(err => {
-            console.error("Failed to fetch games:", err);
-            toast({ title: "Could not update game list", variant: "destructive" });
-        });
-        getPlayersAction().then(setPlayers).catch(err => {
-            console.error("Failed to fetch players:", err);
-            toast({ title: "Could not update leaderboard", variant: "destructive" });
-        });
-    };
 
-    fetchLobbyData();
-    const interval = setInterval(fetchLobbyData, 5000);
-    
-    return () => clearInterval(interval);
+    const gamesQuery = query(collection(db, 'games'));
+    const gamesUnsubscribe = onSnapshot(gamesQuery, (querySnapshot) => {
+        const gamesData = querySnapshot.docs.map(doc => doc.data() as Game);
+        setGames(gamesData);
+    }, (error) => {
+        console.error("Failed to subscribe to games:", error);
+        toast({ title: "Could not update game list", variant: "destructive" });
+    });
+
+    const playersQuery = query(collection(db, 'players'));
+    const playersUnsubscribe = onSnapshot(playersQuery, (querySnapshot) => {
+        const playersData = querySnapshot.docs.map(doc => doc.data() as Player);
+        setPlayers(playersData);
+    }, (error) => {
+        console.error("Failed to subscribe to players:", error);
+        toast({ title: "Could not update leaderboard", variant: "destructive" });
+    });
+
+    return () => {
+        gamesUnsubscribe();
+        playersUnsubscribe();
+    };
   }, [player, toast]);
 
   const handleCreateGame = async () => {
@@ -179,7 +188,6 @@ export default function Lobby() {
   const handleJoinGame = async (gameId: string) => {
     if (player) {
       await joinGameAction(gameId, player);
-      router.push(`/game/${gameId}`);
     }
   };
 
