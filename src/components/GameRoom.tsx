@@ -26,13 +26,15 @@ export function GameRoom({ gameId }: { gameId: string }) {
     try {
       const g = await getGameAction(gameId);
       if (g) {
-        if (game && game.winner !== g.winner && g.winner) {
-            const playerSymbol = player?.id === g.xPlayer.id ? 'X' : 'O';
-            if (g.winner === playerSymbol) {
-                confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+        setGame((prevGame) => {
+            if (prevGame && prevGame.winner !== g.winner && g.winner) {
+                const playerSymbol = player?.id === g.xPlayer.id ? 'X' : 'O';
+                if (g.winner === playerSymbol) {
+                    confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+                }
             }
-        }
-        setGame(g);
+            return g;
+        });
       } else {
         toast({ title: "Game not found", variant: "destructive" });
         router.push('/');
@@ -43,7 +45,13 @@ export function GameRoom({ gameId }: { gameId: string }) {
     } finally {
       setIsLoading(false);
     }
-  }, [gameId, router, toast, game, player]);
+  }, [gameId, router, toast, player]);
+
+  const handleBeforeUnload = useCallback((e: BeforeUnloadEvent) => {
+    if (player && game && game.status === 'live') {
+      forfeitGameAction(game.id, player.id);
+    }
+  }, [player, game]);
 
   useEffect(() => {
     const storedPlayer = localStorage.getItem('ttt-player');
@@ -53,12 +61,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
       router.push('/');
       return;
     }
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (player && game && game.status === 'live') {
-        forfeitGameAction(game.id, player.id);
-      }
-    };
     
     window.addEventListener('beforeunload', handleBeforeUnload);
 
@@ -69,7 +71,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
       clearInterval(intervalId);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [fetchGame, router, player, game]);
+  }, [fetchGame, router, handleBeforeUnload]);
   
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
