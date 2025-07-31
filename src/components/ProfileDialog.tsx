@@ -23,7 +23,7 @@ import * as React from 'react';
 
 const COLORS = [
   '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',
-  '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#ec4899',
+  '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef',
 ];
 
 const ICONS = {

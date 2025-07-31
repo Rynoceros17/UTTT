@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createGameAction, getGamesAction, joinGameAction } from '@/actions/gameActions';
+import { createGameAction, getGamesAction, joinGameAction, getPlayersAction } from '@/actions/gameActions';
 import type { Player, Game } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -17,10 +17,11 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'fire
 import { auth, db } from '@/lib/firebase';
 import { db_firestore } from '@/lib/state';
 import * as React from 'react';
+import { Leaderboard } from './Leaderboard';
 
 const COLORS = [
   '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',
-  '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#ec4899',
+  '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef',
 ];
 
 const ICONS = {
@@ -62,6 +63,8 @@ const AuthForm = () => {
           name: name.trim(),
           icon,
           color,
+          wins: 0,
+          losses: 0,
         };
         await db_firestore.players.save(newPlayer);
         setPlayer(newPlayer);
@@ -144,26 +147,28 @@ const AuthForm = () => {
 export default function Lobby() {
   const { player, loading } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
     if (!player) return;
-    fetchGames();
-    const interval = setInterval(fetchGames, 5000);
+    const fetchLobbyData = () => {
+        getGamesAction().then(setGames).catch(err => {
+            console.error("Failed to fetch games:", err);
+            toast({ title: "Could not update game list", variant: "destructive" });
+        });
+        getPlayersAction().then(setPlayers).catch(err => {
+            console.error("Failed to fetch players:", err);
+            toast({ title: "Could not update leaderboard", variant: "destructive" });
+        });
+    };
+
+    fetchLobbyData();
+    const interval = setInterval(fetchLobbyData, 5000);
     
     return () => clearInterval(interval);
-  }, [player]);
-
-  const fetchGames = async () => {
-    try {
-      const gameList = await getGamesAction();
-      setGames(gameList);
-    } catch (error) {
-      console.error("Failed to fetch games:", error);
-      toast({ title: "Could not update game list", variant: "destructive" });
-    }
-  };
+  }, [player, toast]);
 
   const handleCreateGame = async () => {
     if (player) {
@@ -252,6 +257,7 @@ export default function Lobby() {
           </div>
         </CardContent>
       </Card>
+      <Leaderboard players={players} />
     </div>
   );
 }

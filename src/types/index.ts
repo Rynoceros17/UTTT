@@ -10,6 +10,8 @@ export type Player = {
   name: string;
   icon: string;
   color: string;
+  wins: number;
+  losses: number;
 };
 
 export type Move = {
