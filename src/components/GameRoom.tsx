@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Game, PlayerSymbol, ChatMessage } from '@/types';
-import { joinGameAction, forfeitGameAction, makeMoveAction, sendChatMessageAction } from '@/actions/gameActions';
+import { joinGameAction, forfeitGameAction, makeMoveAction, sendChatMessageAction, requestRematchAction } from '@/actions/gameActions';
 import { applyMove } from '@/lib/gameLogic';
 import { useToast } from '@/hooks/use-toast';
 import GameBoard from './GameBoard';
@@ -12,7 +12,7 @@ import PlayerInfo from './PlayerInfo';
 import GameStatus from './GameStatus';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -24,6 +24,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
   const { player, loading: authLoading } = useAuth();
   const [isJoining, setIsJoining] = useState(false);
+  const [isRequestingRematch, setIsRequestingRematch] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const hasConfettied = useRef(false);
@@ -146,6 +147,18 @@ export function GameRoom({ gameId }: { gameId: string }) {
       // The onSnapshot listener will handle syncing the "official" state.
   };
 
+  const handleRematch = async () => {
+    if (!game || !player) return;
+    setIsRequestingRematch(true);
+    const result = await requestRematchAction(game.id, player.uid);
+    if (result.success && result.newGameId) {
+        router.push(`/game/${result.newGameId}`);
+    } else if (!result.success) {
+        toast({ title: "Failed to request rematch", description: result.message, variant: "destructive" });
+        setIsRequestingRematch(false); // Allow retry if it failed
+    }
+  };
+
   if (authLoading || !game || !player) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-16 w-16 animate-spin text-primary" /></div>;
   }
@@ -178,24 +191,47 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const isSpectator = !isPlayerX && !isPlayerO;
   const playerSymbol = isPlayerX ? 'X' : (isPlayerO ? 'O' : 'X');
   const isPlayerTurn = game.nextTurn === playerSymbol && game.status === 'live';
+  const hasRequestedRematch = game.rematchRequestedBy?.includes(player.uid);
+
+
+  const renderPostGameButtons = () => {
+    if (game.status !== 'finished' || isSpectator) return null;
+
+    if (hasRequestedRematch) {
+        return (
+            <Button disabled className="w-full mt-2">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Waiting for opponent...
+            </Button>
+        );
+    }
+
+    return (
+        <>
+            <Button onClick={handleRematch} disabled={isRequestingRematch} className="w-full mt-2">
+                {isRequestingRematch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Play Again
+            </Button>
+            <Button onClick={() => router.push('/')} className="w-full" variant="secondary">
+                Back to Lobby
+            </Button>
+        </>
+    );
+  }
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
       <div className="w-full lg:w-64 flex-shrink-0 space-y-4">
         <PlayerInfo game={game} currentPlayerId={player?.uid} />
         <Card>
-          <CardContent className="p-4 space-y-4">
+          <CardContent className="p-4 space-y-2">
             <h3 className="font-headline text-lg">Game Info</h3>
             <p><strong>Status:</strong> <span className="capitalize">{game.status}</span></p>
             <p><strong>Game ID:</strong> {game.id}</p>
             {game.status === 'live' && !isSpectator && (
                 <Button variant="destructive" className="w-full" onClick={handleForfeit}>Forfeit Game</Button>
             )}
-             {game.status === 'finished' && (
-              <Button onClick={() => router.push('/')} className="w-full">
-                Back to Lobby
-              </Button>
-            )}
+             {renderPostGameButtons()}
           </CardContent>
         </Card>
       </div>

@@ -43,6 +43,7 @@ export type Game = {
   winningLine?: number[];
   activeLocalBoard: number | null;
   chat?: ChatMessage[];
+  rematchRequestedBy?: string[];
 };
 
 export interface AuthContextType {

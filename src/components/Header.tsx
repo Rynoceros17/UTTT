@@ -33,7 +33,7 @@ export function Header() {
             <Swords className="h-6 w-6" />
           </div>
           <h1 className="text-xl md:text-2xl font-headline font-bold text-foreground">
-            Tactical Tic-Tac-Toe
+            Ultimate Tic-Tac-Toe
           </h1>
         </Link>
         <div className="flex items-center gap-4">

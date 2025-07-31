@@ -6,7 +6,7 @@ import { Header } from '@/components/Header';
 import { AuthProvider } from '@/hooks/use-auth';
 
 export const metadata: Metadata = {
-  title: 'Tactical Tic-Tac-Toe',
+  title: 'Ultimate Tic-Tac-Toe',
   description: 'The ultimate multiplayer Tic-Tac-Toe experience.',
 };
 
