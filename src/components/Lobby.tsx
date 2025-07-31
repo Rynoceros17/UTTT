@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { createGameAction, getGamesAction } from '@/actions/gameActions';
+import { createGameAction, getGamesAction, joinGameAction } from '@/actions/gameActions';
 import type { Player, Game } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -51,13 +50,25 @@ export default function Lobby() {
   const handleCreateGame = async () => {
     if (player) {
       try {
-        const gameId = await createGameAction(player);
-        toast({ title: "Game created!", description: `Room ID: ${gameId}` });
-        router.push(`/game/${gameId}`);
+        await createGameAction(player);
       } catch (error) {
         toast({ title: "Error creating game", variant: "destructive" });
       }
     }
+  };
+
+  const handleJoinGame = async (gameId: string) => {
+    if (player) {
+      try {
+        await joinGameAction(gameId, player);
+      } catch (error) {
+        toast({ title: "Error joining game", variant: "destructive" });
+      }
+    }
+  };
+  
+  const handleSpectateGame = (gameId: string) => {
+    router.push(`/game/${gameId}`);
   };
 
   if (!player) {
@@ -109,8 +120,8 @@ export default function Lobby() {
                       <p className="font-semibold">{game.xPlayer.name}'s Game</p>
                       <p className="text-sm text-muted-foreground">Waiting for opponent</p>
                     </div>
-                    <Button asChild variant="secondary">
-                      <Link href={`/game/${game.id}`}>Join</Link>
+                    <Button onClick={() => handleJoinGame(game.id)} variant="secondary">
+                      Join
                     </Button>
                   </CardContent>
                 </Card>
@@ -130,8 +141,8 @@ export default function Lobby() {
                             <p className="font-semibold">{game.xPlayer.name} vs. {game.oPlayer?.name}</p>
                             <p className="text-sm text-muted-foreground">Game in progress</p>
                             </div>
-                            <Button asChild variant="outline">
-                            <Link href={`/game/${game.id}`}>Spectate</Link>
+                            <Button onClick={() => handleSpectateGame(game.id)} variant="outline">
+                                Spectate
                             </Button>
                         </CardContent>
                     </Card>

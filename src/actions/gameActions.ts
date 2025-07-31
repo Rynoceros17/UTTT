@@ -30,16 +30,16 @@ async function forfeitPlayerFromAllGames(player: Player) {
   }
 }
 
-export async function createGameAction(player: Player): Promise<string> {
+export async function createGameAction(player: Player) {
   await forfeitPlayerFromAllGames(player);
   const gameId = Math.random().toString(36).substring(2, 9);
   const game = createNewGame(gameId, player);
   db.games.save(game);
   revalidatePath('/');
-  return gameId;
+  redirect(`/game/${gameId}`);
 }
 
-export async function joinGameAction(gameId: string, player: Player): Promise<void> {
+export async function joinGameAction(gameId: string, player: Player) {
   await forfeitPlayerFromAllGames(player);
   const game = db.games.find(gameId);
   if (game && game.status === 'waiting' && game.xPlayer.id !== player.id) {
@@ -51,6 +51,7 @@ export async function joinGameAction(gameId: string, player: Player): Promise<vo
   } else {
     // Handle error: game not found, already full, or player is X
   }
+  redirect(`/game/${gameId}`);
 }
 
 export async function makeMoveAction(gameId: string, move: Move, playerId: string): Promise<{ success: boolean; message?: string }> {

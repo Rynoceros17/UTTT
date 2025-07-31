@@ -26,7 +26,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
 
   const playerSymbol = player?.id === game?.xPlayer.id ? 'X' : 'O';
   const isPlayerTurn = game?.nextTurn === playerSymbol && game?.status === 'live';
-  const isSpectator = player && player.id !== game?.xPlayer.id && player.id !== game?.oPlayer?.id;
+  const isSpectator = player && game && player.id !== game.xPlayer.id && player.id !== game.oPlayer?.id;
 
   const fetchGame = useCallback(async () => {
     try {
@@ -66,7 +66,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
       await joinGameAction(gameId, player);
-      fetchGame();
     }
   };
 
@@ -89,7 +88,8 @@ export function GameRoom({ gameId }: { gameId: string }) {
     return <div>Game not found.</div>;
   }
 
-  if (game.status === 'waiting' && game.xPlayer.id !== player?.id) {
+  const isWaitingForYouToJoin = game.status === 'waiting' && player && game.xPlayer.id !== player.id && !game.oPlayer;
+  if (isWaitingForYouToJoin) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <h2 className="text-2xl font-headline">Waiting for O...</h2>
