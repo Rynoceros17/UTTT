@@ -4,12 +4,12 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCSoVvRQpuyN8QB0ThpKpVsxl0x38BgZEE",
+  authDomain: "tactical-tic-tac-toe-online.firebaseapp.com",
+  projectId: "tactical-tic-tac-toe-online",
+  storageBucket: "tactical-tic-tac-toe-online.firebasestorage.app",
+  messagingSenderId: "398036169929",
+  appId: "1:398036169929:web:603ae734e6e2e639c74918"
 };
 
 // Initialize Firebase

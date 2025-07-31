@@ -6,6 +6,8 @@ export type BoardState = PlayerSymbol | 'D' | null;
 export type Player = {
   id: string;
   name: string;
+  icon: string;
+  color: string;
 };
 
 export type Move = {
@@ -16,7 +18,7 @@ export type Move = {
 };
 
 export type Game = {
-  id: string;
+  id:string;
   createdAt: number;
   playerIds: string[]; // For querying games by player
   xPlayer: Player;

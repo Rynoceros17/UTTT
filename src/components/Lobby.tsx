@@ -7,13 +7,11 @@ import { createGameAction, getGamesAction, joinGameAction } from '@/actions/game
 import type { Player, Game } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, PlusCircle } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 
 export default function Lobby() {
   const [player, setPlayer] = useState<Player | null>(null);
-  const [playerName, setPlayerName] = useState('');
   const [games, setGames] = useState<Game[]>([]);
   const router = useRouter();
   const { toast } = useToast();
@@ -23,40 +21,49 @@ export default function Lobby() {
     if (storedPlayer) {
       setPlayer(JSON.parse(storedPlayer));
     }
-    fetchGames();
+
+    const handleStorageChange = () => {
+      const updatedPlayer = localStorage.getItem('ttt-player');
+      if (updatedPlayer) {
+        setPlayer(JSON.parse(updatedPlayer));
+      } else {
+        setPlayer(null);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
     
-    const interval = setInterval(fetchGames, 3000);
-    return () => clearInterval(interval);
+    fetchGames();
+    const interval = setInterval(fetchGames, 5000);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const fetchGames = async () => {
-    const gameList = await getGamesAction();
-    setGames(gameList);
-  };
-
-  const handleSetPlayer = () => {
-    if (playerName.trim()) {
-      const newPlayer = { id: Math.random().toString(36).substring(2, 9), name: playerName };
-      localStorage.setItem('ttt-player', JSON.stringify(newPlayer));
-      setPlayer(newPlayer);
-      toast({ title: `Welcome, ${playerName}!` });
-    } else {
-      toast({
-        title: "Please enter a name.",
-        variant: "destructive",
-      });
+    try {
+      const gameList = await getGamesAction();
+      setGames(gameList);
+    } catch (error) {
+      console.error("Failed to fetch games:", error);
+      toast({ title: "Could not update game list", variant: "destructive" });
     }
   };
 
   const handleCreateGame = async () => {
     if (player) {
       await createGameAction(player);
+    } else {
+      toast({ title: "Please set your profile first.", variant: "destructive" });
     }
   };
 
   const handleJoinGame = async (gameId: string) => {
     if (player) {
       await joinGameAction(gameId, player);
+    } else {
+      toast({ title: "Please set your profile first.", variant: "destructive" });
     }
   };
 
@@ -66,24 +73,11 @@ export default function Lobby() {
 
   if (!player) {
     return (
-      <Card className="max-w-md mx-auto mt-10 shadow-lg">
+      <Card className="max-w-md mx-auto mt-10 shadow-lg text-center">
         <CardHeader>
-          <CardTitle className="font-headline text-2xl text-center">Enter the Arena</CardTitle>
-          <CardDescription className="text-center">Choose your name to start playing.</CardDescription>
+          <CardTitle className="font-headline text-2xl">Welcome to the Arena!</CardTitle>
+          <CardDescription>Set your profile in the top-right corner to begin.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Input
-            type="text"
-            placeholder="Your Name"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSetPlayer()}
-            className="text-center"
-          />
-          <Button onClick={handleSetPlayer} className="w-full">
-            <LogIn className="mr-2 h-4 w-4" /> Set Name & Enter
-          </Button>
-        </CardContent>
       </Card>
     );
   }

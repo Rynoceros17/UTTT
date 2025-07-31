@@ -2,7 +2,6 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 import { db_firestore } from '@/lib/state';
 import { createNewGame, applyMove } from '@/lib/gameLogic';
 import type { Player, Game, Move } from '@/types';
@@ -11,9 +10,7 @@ export async function createGameAction(player: Player): Promise<void> {
   const gameId = Math.random().toString(36).substring(2, 9);
   const game = createNewGame(gameId, player);
   
-  // Forfeit any other games the player is in
   await db_firestore.games.forfeitPlayerGames(player.id, game.id);
-
   await db_firestore.games.save(game);
   redirect(`/game/${gameId}`);
 }
@@ -25,7 +22,6 @@ export async function joinGameAction(gameId: string, player: Player): Promise<vo
     game.status = 'live';
     game.playerIds.push(player.id);
     
-    // Forfeit any other games the player is in
     await db_firestore.games.forfeitPlayerGames(player.id, game.id);
 
     await db_firestore.games.save(game);
@@ -54,8 +50,9 @@ export async function makeMoveAction(gameId: string, move: Move): Promise<{ succ
   if (game.activeLocalBoard !== null && game.activeLocalBoard !== localBoardIndex) {
     return { success: false, message: 'You must play in the indicated board.' };
   }
-
-  if (game.localBoards[localBoardIndex][cellIndex] !== null) {
+  
+  const flatIndex = localBoardIndex * 9 + cellIndex;
+  if (game.localBoards[flatIndex] !== null) {
     return { success: false, message: 'Cell already taken.' };
   }
 
