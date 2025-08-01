@@ -4,7 +4,7 @@
 import { redirect } from 'next/navigation';
 import { db_firestore } from '@/lib/state';
 import { createNewGame, applyMove } from '@/lib/gameLogic';
-import type { Player, Game, Move, ChatMessage } from '@/types';
+import type { Player, Game, Move, ChatMessage, PlayerSymbol } from '@/types';
 import { runTransaction, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -320,3 +320,5 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
         console.error("Failed to forfeit game:", error);
     }
 }
+
+    
