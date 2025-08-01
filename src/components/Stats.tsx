@@ -18,8 +18,8 @@ export function Stats({ totalGames, totalPlayers }: StatsProps) {
     return (
         <>
         <RulesDialog isOpen={isRulesOpen} onOpenChange={setRulesOpen} />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <Card className="lg:col-span-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Players</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
@@ -28,7 +28,7 @@ export function Stats({ totalGames, totalPlayers }: StatsProps) {
                     <div className="text-2xl font-bold">{totalPlayers}</div>
                 </CardContent>
             </Card>
-            <Card>
+            <Card className="lg:col-span-2">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Games</CardTitle>
                     <Swords className="h-4 w-4 text-muted-foreground" />
@@ -37,10 +37,10 @@ export function Stats({ totalGames, totalPlayers }: StatsProps) {
                     <div className="text-2xl font-bold">{totalGames}</div>
                 </CardContent>
             </Card>
-            <Card className="col-span-1 md:col-span-2 flex items-center justify-center p-6">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-1 flex items-center justify-center p-6">
                  <Button onClick={() => setRulesOpen(true)} className="w-full h-full text-lg">
                     <BookOpen className="mr-2 h-5 w-5" />
-                    View Game Rules
+                    Rules
                 </Button>
             </Card>
         </div>
