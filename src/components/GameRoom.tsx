@@ -71,6 +71,11 @@ export function GameRoom({ gameId }: { gameId: string }) {
                     hasConfettied.current = true;
                 }
             }
+            
+            if (newGame.nextGameId) {
+                router.push(`/game/${newGame.nextGameId}`);
+            }
+
         } else {
             toast({ title: "Game not found or has been deleted", variant: "destructive" });
             router.push('/');
@@ -151,9 +156,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     if (!game || !player) return;
     setIsRequestingRematch(true);
     const result = await requestRematchAction(game.id, player.uid);
-    if (result.success && result.newGameId) {
-        router.push(`/game/${result.newGameId}`);
-    } else if (!result.success) {
+    if (!result.success) {
         toast({ title: "Failed to request rematch", description: result.message, variant: "destructive" });
         setIsRequestingRematch(false); // Allow retry if it failed
     }

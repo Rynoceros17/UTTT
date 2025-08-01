@@ -44,6 +44,7 @@ export type Game = {
   activeLocalBoard: number | null;
   chat?: ChatMessage[];
   rematchRequestedBy?: string[];
+  nextGameId?: string;
 };
 
 export interface AuthContextType {

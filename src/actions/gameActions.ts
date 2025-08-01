@@ -141,9 +141,9 @@ export async function sendChatMessageAction(gameId: string, message: Omit<ChatMe
     }
 }
 
-export async function requestRematchAction(gameId: string, playerId: string): Promise<{ success: boolean; newGameId?: string; message?: string }> {
+export async function requestRematchAction(gameId: string, playerId: string): Promise<{ success: boolean; message?: string }> {
     try {
-        const newGameId = await runTransaction(db, async (transaction) => {
+        await runTransaction(db, async (transaction) => {
             const gameRef = doc(db, 'games', gameId);
             const gameDoc = await transaction.get(gameRef);
 
@@ -155,8 +155,7 @@ export async function requestRematchAction(gameId: string, playerId: string): Pr
             const currentRequests = game.rematchRequestedBy || [];
             
             if (currentRequests.includes(playerId)) {
-                // Player has already requested a rematch, do nothing.
-                return undefined;
+                return;
             }
 
             const newRequests = [...currentRequests, playerId];
@@ -164,10 +163,8 @@ export async function requestRematchAction(gameId: string, playerId: string): Pr
 
             const playerIds = [game.xPlayer.uid, game.oPlayer?.uid].filter(Boolean) as string[];
 
-            // Check if both players have now requested a rematch
             if (playerIds.every(pid => newRequests.includes(pid))) {
                 const newId = Math.random().toString(36).substring(2, 9);
-                // Randomly assign who is X and O in the new game
                 const isXPlayerFirst = Math.random() < 0.5;
                 const player1 = game.xPlayer;
                 const player2 = game.oPlayer!;
@@ -179,18 +176,16 @@ export async function requestRematchAction(gameId: string, playerId: string): Pr
 
                 const newGameRef = doc(db, 'games', newId);
                 transaction.set(newGameRef, newGame);
-                return newId;
+                
+                // Set nextGameId on the old game document
+                transaction.update(gameRef, { nextGameId: newId });
             }
-
-            return undefined;
         });
 
-        if (newGameId) {
-            return { success: true, newGameId };
-        }
         return { success: true };
 
-    } catch (error: any) {
+    } catch (error: any)
+ {
         console.error("Error requesting rematch:", error);
         return { success: false, message: error.message };
     }
