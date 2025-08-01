@@ -66,6 +66,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <ul>
                 <li>If all nine local boards are completed (won or drawn) and no player has won the main grid, the entire game is a draw.</li>
             </ul>
+            <p className="font-bold text-destructive">Do not play this game in class at school.</p>
         </div>
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)}>Got it!</Button>
