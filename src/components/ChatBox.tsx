@@ -7,16 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
-import type { ChatMessage } from '@/types';
+import type { ChatMessage, Game, Player } from '@/types';
 import { Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ChatBoxProps {
   messages: ChatMessage[];
   onSendMessage: (text: string) => void;
+  isSpectator: boolean;
 }
 
-export function ChatBox({ messages, onSendMessage }: ChatBoxProps) {
+export function ChatBox({ messages, onSendMessage, isSpectator }: ChatBoxProps) {
   const { player } = useAuth();
   const [newMessage, setNewMessage] = React.useState('');
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
@@ -59,6 +60,8 @@ export function ChatBox({ messages, onSendMessage }: ChatBoxProps) {
           <div className="space-y-1.5 pb-2">
             {messages.map((msg, index) => {
               const isOwn = msg.senderId === player?.uid;
+              const isSpectatorMsg = msg.isSpectator;
+
               return (
                 <div
                   key={index}
@@ -67,12 +70,14 @@ export function ChatBox({ messages, onSendMessage }: ChatBoxProps) {
                     isOwn ? 'items-end' : 'items-start'
                   )}
                 >
-                  {!isOwn && <span className="text-xs text-muted-foreground ml-2 mb-0.5">{msg.senderName}</span>}
+                  <span className="text-xs text-muted-foreground ml-2 mb-0.5">{msg.senderName}</span>
                   <div
                     className={cn(
-                      'px-3 py-1.5 rounded-lg max-w-[80%] text-sm leading-snug break-words',
-                      isOwn
+                      'px-3 py-1.5 rounded-lg max-w-xs text-sm leading-snug break-words',
+                       isOwn
                         ? 'bg-primary text-primary-foreground'
+                        : isSpectatorMsg
+                        ? 'bg-accent/80 text-accent-foreground'
                         : 'bg-muted'
                     )}
                   >

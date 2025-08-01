@@ -201,11 +201,13 @@ export function GameRoom({ gameId }: { gameId: string }) {
 
   const handleSendMessage = async (text: string) => {
       if (!player || !game) return;
+      const isSpectator = !game.playerIds.includes(player.uid);
       const optimisticMessage: ChatMessage = {
           senderId: player.uid,
           senderName: player.name,
           text,
           timestamp: Date.now(),
+          isSpectator,
       };
       
       setOptimisticMessages(prev => [...prev, optimisticMessage]);
@@ -214,6 +216,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
           senderId: player.uid,
           senderName: player.name,
           text: text,
+          isSpectator,
       });
       // The onSnapshot listener will handle syncing the "official" state.
   };
@@ -340,7 +343,8 @@ export function GameRoom({ gameId }: { gameId: string }) {
       <div className="w-full lg:w-80 flex-shrink-0">
         <ChatBox 
             messages={optimisticMessages} 
-            onSendMessage={handleSendMessage} 
+            onSendMessage={handleSendMessage}
+            isSpectator={isSpectator}
         />
       </div>
     </div>

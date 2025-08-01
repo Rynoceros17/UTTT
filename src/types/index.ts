@@ -26,6 +26,7 @@ export type ChatMessage = {
   senderName: string;
   text: string;
   timestamp: number;
+  isSpectator: boolean;
 };
 
 export type Game = {
