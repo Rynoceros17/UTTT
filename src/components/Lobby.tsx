@@ -119,11 +119,12 @@ const AuthForm = () => {
                     key={name}
                     className={cn(
                       'h-10 w-10 rounded-md border-2 flex items-center justify-center transition-transform hover:scale-110',
-                      icon === name ? 'border-ring bg-accent' : 'border-transparent bg-muted'
+                      icon === name ? 'border-ring' : 'border-transparent bg-muted'
                     )}
+                    style={icon === name ? { backgroundColor: color } : {}}
                     onClick={() => setIcon(name as IconName)}
                   >
-                    {React.cloneElement(IconComponent as React.ReactElement, { className: "w-6 h-6" })}
+                    {React.cloneElement(IconComponent as React.ReactElement, { className: cn("w-6 h-6", icon === name ? "text-white" : "text-black") })}
                   </button>
                 ))}
               </div>
