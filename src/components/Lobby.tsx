@@ -239,9 +239,9 @@ export default function Lobby() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <div>
+            <div className="flex items-baseline gap-4">
               <CardTitle className="font-headline text-2xl">Game Lobby</CardTitle>
-              <CardDescription>Welcome, {player.name}! Join a game or create a new one.</CardDescription>
+              <CardDescription>Total Games: {games.length}</CardDescription>
             </div>
             <Button onClick={handleCreateGame} disabled={isCreatingGame}>
               {isCreatingGame ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
