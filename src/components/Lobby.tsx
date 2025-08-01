@@ -20,6 +20,7 @@ import * as React from 'react';
 import { Leaderboard } from './Leaderboard';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { CreateGameDialog } from './CreateGameDialog';
+import { Stats } from './Stats';
 
 const COLORS = [
   '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',
@@ -232,12 +233,12 @@ export default function Lobby() {
     <>
     <CreateGameDialog isOpen={isCreateGameOpen} onOpenChange={setCreateGameOpen} />
     <div className="space-y-8">
+      <Stats totalGames={games.length} totalPlayers={players.length} />
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex justify-between items-center">
             <div className="flex items-baseline gap-4">
               <CardTitle className="font-headline text-2xl">Game Lobby</CardTitle>
-              <CardDescription>Total Games: {games.length}</CardDescription>
             </div>
             <Button onClick={() => setCreateGameOpen(true)}>
                 <PlusCircle className="mr-2 h-4 w-4" />
