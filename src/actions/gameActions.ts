@@ -228,31 +228,20 @@ export async function timeoutGameAction(gameId: string, timedOutPlayerSymbol: 'X
             const game = gameDoc.data() as Game;
             if (game.status !== 'live' || !game.oPlayer) return;
 
-            const xWins = game.globalBoard.filter(c => c === 'X').length;
-            const oWins = game.globalBoard.filter(c => c === 'O').length;
-
-            let winnerSymbol: PlayerSymbol | 'D';
-
-            if (timedOutPlayerSymbol === 'X') {
-                winnerSymbol = oWins > xWins ? 'O' : 'D';
-            } else {
-                winnerSymbol = xWins > oWins ? 'X' : 'D';
-            }
-
+            const winnerSymbol = timedOutPlayerSymbol === 'X' ? 'O' : 'X';
+            
             const winner = winnerSymbol === 'X' ? game.xPlayer : game.oPlayer;
-            const loser = winnerSymbol === 'X' ? game.oPlayer : game.xPlayer;
+            const loser = timedOutPlayerSymbol === 'X' ? game.xPlayer : game.oPlayer;
+            
+            const winnerRef = doc(db, 'players', winner.uid);
+            const loserRef = doc(db, 'players', loser.uid);
+            
+            const winnerDoc = await transaction.get(winnerRef);
+            const loserDoc = await transaction.get(loserRef);
 
-            if (winnerSymbol !== 'D') {
-                 const winnerRef = doc(db, 'players', winner.uid);
-                 const loserRef = doc(db, 'players', loser.uid);
-                 
-                 const winnerDoc = await transaction.get(winnerRef);
-                 const loserDoc = await transaction.get(loserRef);
-
-                 if (winnerDoc.exists() && loserDoc.exists()) {
-                     transaction.update(winnerRef, { wins: (winnerDoc.data()?.wins || 0) + 1 });
-                     transaction.update(loserRef, { losses: (loserDoc.data()?.losses || 0) + 1 });
-                 }
+            if (winnerDoc.exists() && loserDoc.exists()) {
+                transaction.update(winnerRef, { wins: (winnerDoc.data()?.wins || 0) + 1 });
+                transaction.update(loserRef, { losses: (loserDoc.data()?.losses || 0) + 1 });
             }
 
             transaction.update(gameRef, {
