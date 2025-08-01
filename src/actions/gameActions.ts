@@ -216,7 +216,13 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
             if (game.status === 'finished') return;
 
             if (game.status === 'waiting') {
-                // If a player is waiting and forfeits, just delete the game
+                transaction.delete(gameRef);
+                return;
+            }
+
+            const moveCount = game.localBoards.filter(c => c !== null).length;
+            if (moveCount < 18) {
+                // Not enough moves, just delete the game, no win/loss
                 transaction.delete(gameRef);
                 return;
             }
@@ -234,7 +240,6 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
                 ]);
 
                 if (!winnerDoc.exists() || !loserDoc.exists()) {
-                    // One of the players doesn't exist, can't update stats, so just end the game.
                      transaction.update(gameRef, { 
                         status: 'finished',
                         winner: game.xPlayer.uid === winner.uid ? 'X' : 'O'
@@ -255,7 +260,5 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
         });
     } catch (error) {
         console.error("Failed to forfeit game:", error);
-        // We don't throw here to prevent crashing the client on an unhandled promise rejection,
-        // as this action can be fire-and-forget.
     }
 }

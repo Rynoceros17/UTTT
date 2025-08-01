@@ -18,6 +18,16 @@ import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { ChatBox } from './ChatBox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export function GameRoom({ gameId }: { gameId: string }) {
   const [game, setGame] = useState<Game | null>(null);
@@ -25,6 +35,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const { player, loading: authLoading } = useAuth();
   const [isJoining, setIsJoining] = useState(false);
   const [isRequestingRematch, setIsRequestingRematch] = useState(false);
+  const [isForfeitConfirmOpen, setForfeitConfirmOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const hasConfettied = useRef(false);
@@ -33,7 +44,11 @@ export function GameRoom({ gameId }: { gameId: string }) {
       if (game && game.status === 'live' && player) {
         const isPlayerInGame = game.playerIds.includes(player.uid);
         if (isPlayerInGame) {
-          forfeitGameAction(game.id, player.uid);
+          const moveCount = game.localBoards.filter(c => c !== null).length;
+          // Only auto-forfeit if the game is substantial
+          if (moveCount >= 18) {
+            forfeitGameAction(game.id, player.uid);
+          }
         }
       }
   }, [game, player]);
@@ -101,9 +116,21 @@ export function GameRoom({ gameId }: { gameId: string }) {
 
   const handleForfeit = async () => {
     if (!player || !game) return;
+    const moveCount = game.localBoards.filter(c => c !== null).length;
+
+    if (moveCount < 18) {
+        setForfeitConfirmOpen(true);
+    } else {
+        await forfeitGameAction(game.id, player.uid);
+        router.push('/');
+    }
+  };
+
+  const confirmForfeit = async () => {
+    if (!player || !game) return;
     await forfeitGameAction(game.id, player.uid);
     router.push('/');
-  };
+  }
 
   const handleMakeMove = async (localBoardIndex: number, cellIndex: number) => {
     if (!game || !player) return;
@@ -223,6 +250,23 @@ export function GameRoom({ gameId }: { gameId: string }) {
   }
 
   return (
+    <>
+    <AlertDialog open={isForfeitConfirmOpen} onOpenChange={setForfeitConfirmOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                Not enough moves have been played. If you forfeit now, the game will be deleted and no win/loss will be recorded.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmForfeit} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Forfeit
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
       <div className="w-full lg:w-64 flex-shrink-0 space-y-4">
         <PlayerInfo game={game} currentPlayerId={player?.uid} />
@@ -261,5 +305,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
         />
       </div>
     </div>
+    </>
   );
 }
