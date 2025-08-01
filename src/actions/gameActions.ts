@@ -12,7 +12,11 @@ export async function createGameAction(player: Player, timeLimit?: number): Prom
   const gameId = Math.random().toString(36).substring(2, 9);
   const game = createNewGame(gameId, player, timeLimit);
   
+  // Forfeit any of the player's live games
   await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
+  // Delete any of the player's waiting games
+  await db_firestore.games.deleteWaitingGamesForPlayer(player.uid);
+  
   await db_firestore.games.save(game);
   return gameId;
 }
@@ -32,7 +36,8 @@ export async function joinGameAction(gameId: string, player: Player): Promise<{s
             if (game.xPlayer.uid === player.uid) {
                 // This case should be handled by client-side logic disabling the button,
                 // but we add a server-side check for robustness.
-                throw new Error("You cannot join your own game.");
+                // This is not an error, just prevents joining.
+                return;
             }
 
             // Forfeit other games the player might be in
@@ -320,5 +325,3 @@ export async function forfeitGameAction(gameId: string, playerId: string): Promi
         console.error("Failed to forfeit game:", error);
     }
 }
-
-    

@@ -70,7 +70,16 @@ export const db_firestore = {
                 });
             }
         }
-    }
+    },
+    deleteWaitingGamesForPlayer: async (playerId: string): Promise<void> => {
+        const q = query(collection(db, "games"), where("status", "==", "waiting"), where("xPlayer.uid", "==", playerId));
+        const querySnapshot = await getDocs(q);
+        const batch = writeBatch(db);
+        querySnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+    },
   },
   players: {
     find: async (uid: string): Promise<Player | undefined> => {
