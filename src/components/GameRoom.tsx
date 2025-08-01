@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Game, PlayerSymbol, ChatMessage } from '@/types';
-import { joinGameAction, forfeitGameAction, makeMoveAction, sendChatMessageAction, requestRematchAction } from '@/actions/gameActions';
+import { joinGameAction, forfeitGameAction, makeMoveAction, sendChatMessageAction, requestRematchAction, timeoutGameAction } from '@/actions/gameActions';
 import { applyMove } from '@/lib/gameLogic';
 import { useToast } from '@/hooks/use-toast';
 import GameBoard from './GameBoard';
@@ -40,6 +40,11 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const { toast } = useToast();
   const hasConfettied = useRef(false);
 
+  // Clock state
+  const [xTime, setXTime] = useState(game?.xPlayerTime);
+  const [oTime, setOTime] = useState(game?.oPlayerTime);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleBeforeUnload = useCallback((e: BeforeUnloadEvent) => {
       if (game && game.status === 'live' && player) {
         const isPlayerInGame = game.playerIds.includes(player.uid);
@@ -74,6 +79,8 @@ export function GameRoom({ gameId }: { gameId: string }) {
             const newGame = doc.data() as Game;
             setGame(newGame);
             setOptimisticMessages(newGame.chat || []);
+            setXTime(newGame.xPlayerTime);
+            setOTime(newGame.oPlayerTime);
             
             if (newGame.status === 'waiting' && isJoining) {
                 setIsJoining(false);
@@ -103,6 +110,38 @@ export function GameRoom({ gameId }: { gameId: string }) {
     return () => unsubscribe();
   }, [authLoading, player, gameId, router, toast, isJoining]);
   
+   // Clock effect
+   useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (!game || game.status !== 'live' || !game.timeLimit) return;
+  
+    timerRef.current = setInterval(() => {
+      const now = Date.now();
+      const lastMoveTime = game.lastMoveTimestamp || now;
+      const diff = (now - lastMoveTime) / 1000;
+  
+      if (game.nextTurn === 'X') {
+        const newXTime = (game.xPlayerTime || 0) - diff;
+        setXTime(newXTime);
+        if (newXTime <= 0) {
+          clearInterval(timerRef.current!);
+          timeoutGameAction(game.id, 'X');
+        }
+      } else {
+        const newOTime = (game.oPlayerTime || 0) - diff;
+        setOTime(newOTime);
+        if (newOTime <= 0) {
+          clearInterval(timerRef.current!);
+          timeoutGameAction(game.id, 'O');
+        }
+      }
+    }, 1000);
+  
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [game]);
+
   const handleJoinGame = async () => {
     if (player && game && game.status === 'waiting') {
       setIsJoining(true);
@@ -269,7 +308,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     </AlertDialog>
     <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
       <div className="w-full lg:w-64 flex-shrink-0 space-y-4">
-        <PlayerInfo game={game} currentPlayerId={player?.uid} />
+        <PlayerInfo game={game} currentPlayerId={player?.uid} xTime={xTime} oTime={oTime} />
         <Card>
           <CardContent className="p-4 space-y-2">
             <h3 className="font-headline text-lg">Game Info</h3>

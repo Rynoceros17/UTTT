@@ -26,8 +26,8 @@ export function isBoardFull(board: CellState[]): boolean {
   return board.every(cell => cell !== null);
 };
 
-export function createNewGame(gameId: string, player: Player): Game {
-  return {
+export function createNewGame(gameId: string, player: Player, timeLimit?: number): Game {
+  const game: Game = {
     id: gameId,
     playerIds: [player.uid],
     xPlayer: player,
@@ -39,11 +39,31 @@ export function createNewGame(gameId: string, player: Player): Game {
     activeLocalBoard: null,
     createdAt: Date.now(),
   };
+
+  if (timeLimit) {
+    game.timeLimit = timeLimit;
+    game.xPlayerTime = timeLimit;
+    game.oPlayerTime = timeLimit;
+    game.lastMoveTimestamp = Date.now();
+  }
+
+  return game;
 };
 
 export function applyMove(game: Game, move: Move): Game {
-  const newGame = JSON.parse(JSON.stringify(game));
+  const newGame: Game = JSON.parse(JSON.stringify(game));
   const { localBoardIndex, cellIndex, player } = move;
+
+  const now = Date.now();
+  if (newGame.timeLimit && newGame.lastMoveTimestamp) {
+      const timeSpent = (now - newGame.lastMoveTimestamp) / 1000;
+      if (player === 'X') {
+          newGame.xPlayerTime = (newGame.xPlayerTime || 0) - timeSpent;
+      } else {
+          newGame.oPlayerTime = (newGame.oPlayerTime || 0) - timeSpent;
+      }
+  }
+  newGame.lastMoveTimestamp = now;
 
   const flatIndex = localBoardIndex * 9 + cellIndex;
   newGame.localBoards[flatIndex] = player;
@@ -61,6 +81,7 @@ export function applyMove(game: Game, move: Move): Game {
       newGame.winner = globalWinnerCheck.winner;
       newGame.winningLine = globalWinnerCheck.winningLine || undefined;
       newGame.status = 'finished';
+      newGame.winReason = 'checkmate';
       newGame.activeLocalBoard = null;
       return newGame;
     }

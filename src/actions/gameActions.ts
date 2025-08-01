@@ -8,13 +8,13 @@ import type { Player, Game, Move, ChatMessage } from '@/types';
 import { runTransaction, doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-export async function createGameAction(player: Player): Promise<void> {
+export async function createGameAction(player: Player, timeLimit?: number): Promise<string> {
   const gameId = Math.random().toString(36).substring(2, 9);
-  const game = createNewGame(gameId, player);
+  const game = createNewGame(gameId, player, timeLimit);
   
   await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
   await db_firestore.games.save(game);
-  redirect(`/game/${gameId}`);
+  return gameId;
 }
 
 export async function joinGameAction(gameId: string, player: Player): Promise<{success: boolean, message?: string}> {
@@ -38,11 +38,17 @@ export async function joinGameAction(gameId: string, player: Player): Promise<{s
             // Forfeit other games the player might be in
             await db_firestore.games.forfeitPlayerGames(player.uid, game.id);
             
-            transaction.update(gameRef, {
+            const updateData: Partial<Game> = {
                 oPlayer: player,
                 status: 'live',
                 playerIds: [...game.playerIds, player.uid]
-            });
+            };
+
+            if (game.timeLimit) {
+                updateData.lastMoveTimestamp = Date.now();
+            }
+
+            transaction.update(gameRef, updateData);
         });
         return { success: true };
     } catch (error: any) {
@@ -169,10 +175,13 @@ export async function requestRematchAction(gameId: string, playerId: string): Pr
                 const player1 = game.xPlayer;
                 const player2 = game.oPlayer!;
 
-                const newGame = createNewGame(newId, isXPlayerFirst ? player1 : player2);
+                const newGame = createNewGame(newId, isXPlayerFirst ? player1 : player2, game.timeLimit);
                 newGame.oPlayer = isXPlayerFirst ? player2 : player1;
                 newGame.status = 'live';
                 newGame.playerIds = [player1.uid, player2.uid];
+                 if (newGame.timeLimit) {
+                    newGame.lastMoveTimestamp = Date.now();
+                }
 
                 const newGameRef = doc(db, 'games', newId);
                 transaction.set(newGameRef, newGame);
@@ -201,6 +210,55 @@ export async function getGamesAction(): Promise<Game[]> {
 
 export async function getPlayersAction(): Promise<Player[]> {
   return db_firestore.players.findAll();
+}
+
+export async function timeoutGameAction(gameId: string, timedOutPlayerSymbol: 'X' | 'O'): Promise<void> {
+    try {
+        await runTransaction(db, async (transaction) => {
+            const gameRef = doc(db, 'games', gameId);
+            const gameDoc = await transaction.get(gameRef);
+
+            if (!gameDoc.exists()) return;
+
+            const game = gameDoc.data() as Game;
+            if (game.status !== 'live' || !game.oPlayer) return;
+
+            const xWins = game.globalBoard.filter(c => c === 'X').length;
+            const oWins = game.globalBoard.filter(c => c === 'O').length;
+
+            let winnerSymbol: PlayerSymbol | 'D';
+
+            if (timedOutPlayerSymbol === 'X') {
+                winnerSymbol = oWins > xWins ? 'O' : 'D';
+            } else {
+                winnerSymbol = xWins > oWins ? 'X' : 'D';
+            }
+
+            const winner = winnerSymbol === 'X' ? game.xPlayer : game.oPlayer;
+            const loser = winnerSymbol === 'X' ? game.oPlayer : game.xPlayer;
+
+            if (winnerSymbol !== 'D') {
+                 const winnerRef = doc(db, 'players', winner.uid);
+                 const loserRef = doc(db, 'players', loser.uid);
+                 
+                 const winnerDoc = await transaction.get(winnerRef);
+                 const loserDoc = await transaction.get(loserRef);
+
+                 if (winnerDoc.exists() && loserDoc.exists()) {
+                     transaction.update(winnerRef, { wins: (winnerDoc.data()?.wins || 0) + 1 });
+                     transaction.update(loserRef, { losses: (loserDoc.data()?.losses || 0) + 1 });
+                 }
+            }
+
+            transaction.update(gameRef, {
+                status: 'finished',
+                winner: winnerSymbol,
+                winReason: 'timeout'
+            });
+        });
+    } catch (error) {
+        console.error("Error processing game timeout:", error);
+    }
 }
 
 export async function forfeitGameAction(gameId: string, playerId: string): Promise<void> {

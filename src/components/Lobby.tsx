@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createGameAction, joinGameAction } from '@/actions/gameActions';
+import { joinGameAction } from '@/actions/gameActions';
 import type { Player, Game } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import { db_firestore } from '@/lib/state';
 import * as React from 'react';
 import { Leaderboard } from './Leaderboard';
 import { collection, onSnapshot, query } from 'firebase/firestore';
+import { CreateGameDialog } from './CreateGameDialog';
 
 const COLORS = [
   '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',
@@ -156,7 +157,7 @@ export default function Lobby() {
   const { player, loading } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [isCreatingGame, setIsCreatingGame] = useState(false);
+  const [isCreateGameOpen, setCreateGameOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -186,15 +187,7 @@ export default function Lobby() {
         playersUnsubscribe();
     };
   }, [player, toast]);
-
-  const handleCreateGame = async () => {
-    if (player) {
-      setIsCreatingGame(true);
-      await createGameAction(player);
-      // Redirect is handled by the server action
-    }
-  };
-
+  
   const handleJoinGame = async (gameId: string) => {
     if (player) {
       try {
@@ -235,6 +228,8 @@ export default function Lobby() {
   }
 
   return (
+    <>
+    <CreateGameDialog isOpen={isCreateGameOpen} onOpenChange={setCreateGameOpen} />
     <div className="space-y-8">
       <Card className="shadow-lg">
         <CardHeader>
@@ -243,9 +238,9 @@ export default function Lobby() {
               <CardTitle className="font-headline text-2xl">Game Lobby</CardTitle>
               <CardDescription>Total Games: {games.length}</CardDescription>
             </div>
-            <Button onClick={handleCreateGame} disabled={isCreatingGame}>
-              {isCreatingGame ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-               Create Game
+            <Button onClick={() => setCreateGameOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Game
             </Button>
           </div>
         </CardHeader>
@@ -296,5 +291,6 @@ export default function Lobby() {
       </Card>
       <Leaderboard players={players} />
     </div>
+    </>
   );
 }

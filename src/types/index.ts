@@ -45,6 +45,13 @@ export type Game = {
   chat?: ChatMessage[];
   rematchRequestedBy?: string[];
   nextGameId?: string;
+  
+  // Clock fields
+  timeLimit?: number; // in seconds
+  xPlayerTime?: number; // remaining time in seconds
+  oPlayerTime?: number; // remaining time in seconds
+  lastMoveTimestamp?: number;
+  winReason?: 'timeout' | 'checkmate';
 };
 
 export interface AuthContextType {

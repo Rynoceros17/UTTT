@@ -6,18 +6,21 @@ import { OIcon } from './icons/OIcon';
 import { cn } from '@/lib/utils';
 import { User, Crown } from 'lucide-react';
 import { PlayerAvatar } from './PlayerAvatar';
+import { PlayerClock } from './PlayerClock';
 
 interface PlayerInfoProps {
   game: Game;
   currentPlayerId: string | null | undefined;
+  xTime?: number;
+  oTime?: number;
 }
 
-export default function PlayerInfo({ game, currentPlayerId }: PlayerInfoProps) {
-  const { xPlayer, oPlayer, nextTurn, winner, status } = game;
+export default function PlayerInfo({ game, currentPlayerId, xTime, oTime }: PlayerInfoProps) {
+  const { xPlayer, oPlayer, nextTurn, winner, status, timeLimit } = game;
   const isXPlayer = currentPlayerId === xPlayer.uid;
   const isOPlayer = currentPlayerId === oPlayer?.uid;
   
-  const PlayerCard = ({ player, symbol, isTurn, isWinner, isYou }: { player: Player, symbol: 'X' | 'O', isTurn: boolean, isWinner: boolean, isYou: boolean }) => (
+  const PlayerCard = ({ player, symbol, isTurn, isWinner, isYou, time }: { player: Player, symbol: 'X' | 'O', isTurn: boolean, isWinner: boolean, isYou: boolean, time?: number }) => (
     <Card className={cn("transition-all", isTurn && status === 'live' ? 'ring-2 ring-accent shadow-lg' : 'shadow-sm')}>
       <CardContent className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -30,7 +33,12 @@ export default function PlayerInfo({ game, currentPlayerId }: PlayerInfoProps) {
             </p>
           </div>
         </div>
-        {isWinner && <Crown className="w-6 h-6 text-yellow-500" />}
+        <div className="flex items-center gap-2">
+            {timeLimit && time !== undefined && (
+                <PlayerClock remainingTime={time} isActive={isTurn && status === 'live'} />
+            )}
+            {isWinner && <Crown className="w-6 h-6 text-yellow-500" />}
+        </div>
       </CardContent>
     </Card>
   );
@@ -43,6 +51,7 @@ export default function PlayerInfo({ game, currentPlayerId }: PlayerInfoProps) {
             isTurn={nextTurn === 'X'} 
             isWinner={winner === 'X'}
             isYou={isXPlayer}
+            time={xTime}
         />
         {oPlayer ? (
             <PlayerCard 
@@ -51,6 +60,7 @@ export default function PlayerInfo({ game, currentPlayerId }: PlayerInfoProps) {
                 isTurn={nextTurn === 'O'} 
                 isWinner={winner === 'O'}
                 isYou={isOPlayer}
+                time={oTime}
             />
         ) : (
             <Card>
