@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -62,16 +63,17 @@ export function ChatBox({ messages, onSendMessage }: ChatBoxProps) {
                 <div
                   key={index}
                   className={cn(
-                    'flex',
-                    isOwn ? 'justify-end' : 'justify-start'
+                    'flex flex-col',
+                    isOwn ? 'items-end' : 'items-start'
                   )}
                 >
+                  {!isOwn && <span className="text-xs text-muted-foreground ml-2 mb-0.5">{msg.senderName}</span>}
                   <div
                     className={cn(
                       'px-3 py-1.5 rounded-lg max-w-[80%] text-sm leading-snug break-words',
                       isOwn
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground'
+                        : 'bg-muted'
                     )}
                   >
                     {msg.text}
